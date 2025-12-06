@@ -1,0 +1,33 @@
+[project]
+name = "vqu"
+version = "0.1.0"
+description = "Version Queries and Updates for .env, JSON, TOML, XML and YAML configuration files."
+readme = "README.md"
+authors = [
+    { name = "Alexis Bergue", email = "alexis.bergue@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.12.5",
+    "termcolor>=3.2.0",
+]
+
+[project.scripts]
+vqu = "vqu.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.9.15,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pyrefly>=0.44.2",
+    "ruff>=0.14.8",
+    "ty>=0.0.1a32",
+]
+
+[tool.mypy]
+strict = true
+
+[tool.pyrefly]
+python-version = "3.10"

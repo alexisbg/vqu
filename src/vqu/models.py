@@ -1,0 +1,140 @@
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel
+
+
+class CliArgs(BaseModel):
+    """Data container for CLI arguments.
+
+    Attributes:
+        project (str | None): Select a specific project.
+        config_file_path (str): The path to the configuration file.
+        update (bool): Write the version numbers to the configuration files. Requires
+            that the project attribute is set.
+    """
+
+    project: str | None
+    config_file_path: str
+    update: bool
+
+
+class RootConfig(BaseModel):
+    """Data container for the JSON configuration file of this script.
+
+    Attributes:
+        projects (dict[str, Project]): A dictionary mapping project names to their corresponding
+            Project instances, loaded from the configuration file.
+    """
+
+    projects: dict[str, "Project"]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "RootConfig":
+        """Factory method to create a RootConfig instance from a dictionary.
+
+        This dictionary is typically parsed from JSON serialization.
+        """
+        projects: dict[str, Any] = data["projects"]
+        return cls(
+            projects={k: Project.from_dict(v) for k, v in projects.items()},
+        )
+
+
+class Project(BaseModel):
+    """Data container for a project entry.
+
+    Attributes:
+        version (str): The current version of the project.
+        config_files (list[ConfigFile]): List of configuration files associated with this project
+            that contain version numbers managed by this script.
+    """
+
+    version: str
+    config_files: list["ConfigFile"]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Project":
+        """Factory method to create a Project instance from a dictionary.
+
+        This dictionary is typically parsed from JSON serialization.
+        """
+        return cls(
+            version=data["version"],
+            config_files=[ConfigFile.from_dict(cf) for cf in data["config_files"]],
+        )
+
+
+class ConfigFile(BaseModel):
+    """Data container for a configuration file entry.
+
+    Attributes:
+        path (str): Filesystem path to the configuration file, relative to this script.
+        format (ConfigFileFormat): The configuration file format; expected to match a member
+            of the `ConfigFileFormat` enum.
+        filters (list[ConfigFilter]): List of yq command syntax strings used to extract the version
+            value from this configuration file.
+    """
+
+    path: str
+    format: "ConfigFileFormat"
+    filters: list["ConfigFilter"]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ConfigFile":
+        """Factory method to create a ConfigFile instance from a dictionary.
+
+        This dictionary is typically parsed from JSON serialization.
+        """
+        return cls(
+            path=data["path"],
+            format=ConfigFileFormat(data["format"]),
+            filters=[ConfigFilter.from_dict(f) for f in data["filters"]],
+        )
+
+
+class ConfigFilter(BaseModel):
+    """Data container for a configuration filter entry.
+
+    Attributes:
+        expression (str): The yq command syntax string used to extract or update the version value.
+        result (str | None): The extracted version value, or None if not yet retrieved.
+    """
+
+    expression: str
+    result: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ConfigFilter":
+        """Factory method to create a ConfigFilter instance from a dictionary.
+
+        This dictionary is typically parsed from JSON serialization.
+        """
+        return cls(
+            expression=data["expression"],
+            result=data.get("result", None),
+        )
+
+
+class ConfigFileFormat(str, Enum):
+    """Enumeration of supported configuration file formats."""
+
+    DOTENV = "dotenv"
+    JSON = "json"
+    TOML = "toml"
+    XML = "xml"
+    YAML = "yaml"
+
+    @classmethod
+    def has_value(cls, value: str) -> bool:
+        """Check if the enum contains a member with the specified value."""
+        return value in cls._value2member_map_
+
+    @classmethod
+    def to_yq_format(cls, value: "ConfigFileFormat") -> str:
+        """Convert some enum values to the corresponding yq format string."""
+        conversion_map: dict[ConfigFileFormat, str] = {
+            ConfigFileFormat.DOTENV: "props",
+        }
+
+        return conversion_map.get(value, value.value)
