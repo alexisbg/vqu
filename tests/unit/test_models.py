@@ -1,6 +1,5 @@
 from pydantic import ValidationError
 import pytest
-from pytest_mock import MockerFixture
 
 from vqu.models import CliArgs, ConfigFile, ConfigFileFormat, ConfigFilter, Project, RootConfig
 
@@ -46,7 +45,7 @@ class TestRootConfig:
 
     def test_root_config_valid_creation(self) -> None:
         """Successful creation of RootConfig with valid data."""
-        data = {"proj1": Project(version="1.0", config_files=[])}
+        data = {"proj1": Project(version="1.0", config_files=[])}  # type: ignore[missing-argument]
 
         sut = RootConfig(projects=data)
 
@@ -54,37 +53,6 @@ class TestRootConfig:
         assert len(sut.projects) == 1
         assert "proj1" in sut.projects
         assert isinstance(sut.projects["proj1"], Project)
-
-    @pytest.mark.parametrize("projects", invalid_projects)
-    def test_from_dict_invalid_projects_type(self, projects: dict[str, Project]) -> None:
-        """ValidationError when 'projects' is of invalid type."""
-        with pytest.raises((KeyError, TypeError)):  # pyrefly: ignore[no-matching-overload]
-            RootConfig.from_dict({"projects": projects})
-
-    def test_from_dict_empty_projects(self, mocker: MockerFixture) -> None:
-        """Successful creation with empty projects dict."""
-        data = {"projects": {}}
-
-        root = RootConfig.from_dict(data)
-
-        assert isinstance(root.projects, dict)
-        assert root.projects == {}
-
-    def test_from_dict_valid(self, mocker: MockerFixture) -> None:
-        """Successful creation of RootConfig from a valid dictionary."""
-        data = {
-            "projects": {
-                "proj1": {"version": "1.0", "config_files": []},
-                "proj2": {"version": "2.0", "config_files": []},
-            }
-        }
-
-        root = RootConfig.from_dict(data)
-
-        assert isinstance(root.projects, dict)
-        assert len(root.projects) == 2
-        assert "proj1" in root.projects
-        assert "proj2" in root.projects
 
 
 class TestProject:
@@ -103,64 +71,22 @@ class TestProject:
     def test_project_invalid_version_type(self, version: str) -> None:
         """ValidationError is raised for invalid version types."""
         with pytest.raises(ValidationError):
-            Project(version=version, config_files=[])
+            Project(version=version, config_files=[])  # pyrefly: ignore[missing-argument]
 
     @pytest.mark.parametrize("config_files", invalid_config_files)
     def test_project_invalid_config_files_type(self, config_files: list) -> None:
         """ValidationError is raised for invalid config_files types."""
         with pytest.raises(ValidationError):
-            Project(version="1.0", config_files=config_files)
+            Project(version="1.0", config_files=config_files)  # pyrefly: ignore[missing-argument]
 
     def test_project_valid_creation(self) -> None:
         """Successful creation of Project with valid data."""
-        sut = Project(version="1.0", config_files=[])
+        sut = Project(version="1.0", config_files=[])  # pyrefly: ignore[missing-argument]
 
         assert isinstance(sut.version, str)
         assert sut.version == "1.0"
         assert isinstance(sut.config_files, list)
         assert len(sut.config_files) == 0
-
-    @pytest.mark.parametrize("version", invalid_version)
-    def test_from_dict_invalid_version_type(self, version: str) -> None:
-        """ValidationError for invalid version types."""
-        with pytest.raises(ValidationError):
-            Project.from_dict({"version": version, "config_files": []})
-
-    @pytest.mark.parametrize("config_files", invalid_config_files)
-    def test_from_dict_invalid_config_files_type(self, config_files: list) -> None:
-        """TypeError for invalid config_files type."""
-        with pytest.raises(TypeError):
-            Project.from_dict({"version": "1.0", "config_files": config_files})
-
-    def test_from_dict_empty_config_files(self) -> None:
-        """from_dict successful with empty config_files list."""
-        data = {"version": "1.0", "config_files": []}
-
-        project = Project.from_dict(data)
-
-        assert isinstance(project, Project)
-        assert project.version == "1.0"
-        assert project.config_files == []
-
-    def test_from_dict_valid(self) -> None:
-        """from_dict successful with a valid config_files."""
-        data = {
-            "version": "2.5.0",
-            "config_files": [
-                {
-                    "path": "config.json",
-                    "format": "json",
-                    "filters": [{"expression": ".version", "result": None}],
-                }
-            ],
-        }
-
-        project = Project.from_dict(data)
-
-        assert isinstance(project, Project)
-        assert project.version == "2.5.0"
-        assert len(project.config_files) == 1
-        assert project.config_files[0].path == "config.json"
 
 
 class TestConfigFile:
@@ -207,57 +133,6 @@ class TestConfigFile:
         assert isinstance(sut.filters, list)
         assert len(sut.filters) == 0
 
-    @pytest.mark.parametrize("path", invalid_path)
-    def test_from_dict_invalid_path_type(self, path: str) -> None:
-        """ValidationError for invalid path types."""
-        with pytest.raises(ValidationError):
-            ConfigFile.from_dict({"path": path, "format": ConfigFileFormat.JSON, "filters": []})
-
-    @pytest.mark.parametrize("format", invalid_path)
-    def test_from_dict_invalid_format_type(self, format: ConfigFileFormat) -> None:
-        """ValueError for invalid format types."""
-        with pytest.raises(ValueError):
-            ConfigFile.from_dict({"path": "config.json", "format": format, "filters": []})
-
-    @pytest.mark.parametrize("filters", invalid_filters)
-    def test_from_dict_invalid_filters_type(self, filters: list) -> None:
-        """TypeError for invalid filters type."""
-        with pytest.raises(TypeError):
-            ConfigFile.from_dict(
-                {"path": "config.json", "format": ConfigFileFormat.JSON, "filters": filters}
-            )
-
-    def test_from_dict_empty_filters(self) -> None:
-        """Successful creation with empty filters list."""
-        data = {"path": "config.json", "format": "json", "filters": []}
-
-        config_file = ConfigFile.from_dict(data)
-
-        assert isinstance(config_file, ConfigFile)
-        assert config_file.path == "config.json"
-        assert config_file.format == ConfigFileFormat.JSON
-        assert config_file.filters == []
-
-    def test_from_dict_valid(self) -> None:
-        """Successful creation of ConfigFile from a valid dictionary."""
-        data = {
-            "path": "config.yaml",
-            "format": "yaml",
-            "filters": [
-                {"expression": ".version", "result": None},
-                {"expression": ".app.version", "result": "1.2.3"},
-            ],
-        }
-
-        config_file = ConfigFile.from_dict(data)
-
-        assert isinstance(config_file, ConfigFile)
-        assert config_file.path == "config.yaml"
-        assert config_file.format == ConfigFileFormat.YAML
-        assert len(config_file.filters) == 2
-        assert config_file.filters[0].expression == ".version"
-        assert config_file.filters[1].result == "1.2.3"
-
 
 class TestConfigFilter:
     """Unit tests for the ConfigFilter class."""
@@ -298,38 +173,6 @@ class TestConfigFilter:
         assert sut.expression == ".app.version"
         assert isinstance(sut.result, str)
         assert sut.result == "1.2.3"
-
-    @pytest.mark.parametrize("expression", invalid_expression)
-    def test_from_dict_invalid_expression_type(self, expression: str) -> None:
-        """ValidationError for invalid expression types."""
-        with pytest.raises(ValidationError):
-            ConfigFilter.from_dict({"expression": expression, "result": None})
-
-    @pytest.mark.parametrize("result", invalid_result)
-    def test_from_dict_invalid_result_type(self, result: str | None) -> None:
-        """ValidationError for invalid result types."""
-        with pytest.raises(ValidationError):
-            ConfigFilter.from_dict({"expression": ".version", "result": result})
-
-    def test_from_dict_valid_without_result(self) -> None:
-        """Successful creation of ConfigFilter from a valid dictionary without result."""
-        data = {"expression": ".database.version"}
-
-        config_filter = ConfigFilter.from_dict(data)
-
-        assert isinstance(config_filter, ConfigFilter)
-        assert config_filter.expression == ".database.version"
-        assert config_filter.result is None
-
-    def test_from_dict_valid_with_result(self) -> None:
-        """Successful creation of ConfigFilter from a valid dictionary with result."""
-        data = {"expression": ".app.version", "result": "2.3.4"}
-
-        config_filter = ConfigFilter.from_dict(data)
-
-        assert isinstance(config_filter, ConfigFilter)
-        assert config_filter.expression == ".app.version"
-        assert config_filter.result == "2.3.4"
 
 
 class TestConfigFileFormat:

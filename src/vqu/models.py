@@ -1,7 +1,6 @@
 from enum import Enum
-from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from pydantic.fields import Field
 
 
@@ -30,17 +29,6 @@ class RootConfig(BaseModel):
 
     projects: dict[str, "Project"]
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RootConfig":
-        """Factory method to create a RootConfig instance from a dictionary.
-
-        This dictionary is typically parsed from JSON serialization.
-        """
-        projects: dict[str, Any] = data["projects"]
-        return cls(
-            projects={k: Project.from_dict(v) for k, v in projects.items()},
-        )
-
 
 class Project(BaseModel):
     """Data container for a project entry.
@@ -51,19 +39,10 @@ class Project(BaseModel):
             that contain version numbers managed by this script.
     """
 
+    model_config = ConfigDict(populate_by_name=True)
+
     version: str = Field(..., min_length=1)
-    config_files: list["ConfigFile"]
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Project":
-        """Factory method to create a Project instance from a dictionary.
-
-        This dictionary is typically parsed from JSON serialization.
-        """
-        return cls(
-            version=data["version"],
-            config_files=[ConfigFile.from_dict(cf) for cf in data["config_files"]],
-        )
+    config_files: list["ConfigFile"] = Field(..., alias="configFiles")
 
 
 class ConfigFile(BaseModel):
@@ -81,18 +60,6 @@ class ConfigFile(BaseModel):
     format: "ConfigFileFormat"
     filters: list["ConfigFilter"]
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ConfigFile":
-        """Factory method to create a ConfigFile instance from a dictionary.
-
-        This dictionary is typically parsed from JSON serialization.
-        """
-        return cls(
-            path=data["path"],
-            format=ConfigFileFormat(data["format"]),
-            filters=[ConfigFilter.from_dict(f) for f in data["filters"]],
-        )
-
 
 class ConfigFilter(BaseModel):
     """Data container for a configuration filter entry.
@@ -104,17 +71,6 @@ class ConfigFilter(BaseModel):
 
     expression: str = Field(min_length=1)
     result: str | None = None
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ConfigFilter":
-        """Factory method to create a ConfigFilter instance from a dictionary.
-
-        This dictionary is typically parsed from JSON serialization.
-        """
-        return cls(
-            expression=data["expression"],
-            result=data.get("result", None),
-        )
 
 
 class ConfigFileFormat(str, Enum):

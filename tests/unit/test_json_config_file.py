@@ -1,5 +1,6 @@
 import json
 
+from pydantic import ValidationError
 import pytest
 from pytest_mock import MockerFixture
 
@@ -15,17 +16,20 @@ class TestLoadProjectsFromJson:
             load_projects_from_json("/nonexistent/path/.vqu.json")
 
     def test_load_projects_invalid_json(self, mocker: MockerFixture) -> None:
-        """JSONDecodeError is raised for invalid JSON content."""
+        """ValidationError is raised for invalid JSON content."""
         invalid_json = "{ invalid json content"
 
-        mocker.patch("builtins.open", mocker.mock_open(read_data=invalid_json))
+        # Patching "builtins.open" fails in some environments, so it is replaced by the module
+        # scope "vqu.json_config_file.open".
+        # See https://github.com/microsoft/vscode-python/issues/24811#issuecomment-3474654627
+        mocker.patch("vqu.json_config_file.open", mocker.mock_open(read_data=invalid_json))
 
-        with pytest.raises(json.JSONDecodeError):
+        with pytest.raises(ValidationError):
             load_projects_from_json("/fake/path/config.json")
 
     def test_load_projects_permission_error(self, mocker: MockerFixture) -> None:
         """PermissionError is raised when file cannot be read."""
-        mocker.patch("builtins.open", side_effect=PermissionError("Permission denied"))
+        mocker.patch("vqu.json_config_file.open", side_effect=PermissionError("Permission denied"))
 
         with pytest.raises(PermissionError):
             load_projects_from_json("/denied/path/config.json")
@@ -36,25 +40,20 @@ class TestLoadProjectsFromJson:
             "projects": {
                 "project1": {
                     "version": "1.0.0",
-                    "config_files": [],
+                    "configFiles": [],
                 }
             }
         }
 
         json_content = json.dumps(sample_json_data)
-
-        mock_root_config = mocker.MagicMock()
-        mock_root_config.projects = sample_json_data["projects"]
-
-        mocker.patch("builtins.open", mocker.mock_open(read_data=json_content))
-        mocker.patch("json.load", return_value=sample_json_data)
+        mocker.patch("vqu.json_config_file.open", mocker.mock_open(read_data=json_content))
         mock_chdir = mocker.patch("os.chdir")
-        mock_from_dict = mocker.patch(
-            "vqu.models.RootConfig.from_dict", return_value=mock_root_config
-        )
 
         result = load_projects_from_json("/fake/path/config.json")
 
         mock_chdir.assert_called_once()
-        mock_from_dict.assert_called_once_with(sample_json_data)
-        assert result == sample_json_data["projects"]
+
+        assert "project1" in result
+        json_project1 = sample_json_data["projects"]["project1"]
+        assert result["project1"].version == json_project1["version"]
+        assert result["project1"].config_files == json_project1["configFiles"]

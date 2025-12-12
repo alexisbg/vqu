@@ -2,7 +2,7 @@
   "projects": {
     "Project_1": {
       "version": "0.1.1",
-      "config_files": [
+      "configFiles": [
         {
           "path": "proj1/.env",
           "format": "dotenv",
@@ -34,7 +34,7 @@
     },
     "Project_2": {
       "version": "0.1.3",
-      "config_files": [
+      "configFiles": [
         {
           "path": "proj2/conf.xml",
           "format": "xml",

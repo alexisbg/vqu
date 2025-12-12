@@ -26,7 +26,7 @@ class TestEvalProject:
             format=ConfigFileFormat.JSON,
             filters=[self.config_filter],
         )
-        self.project = Project(version="1.0.0", config_files=[self.config_file])
+        self.project = Project(version="1.0.0", config_files=[self.config_file])  # type: ignore[missing-argument]
 
     def test_eval_project_suppresses_output_when_print_result_false(
         self, mocker: MockerFixture, capsys: CaptureFixture
@@ -343,7 +343,7 @@ class TestUpdateProject:
             format=ConfigFileFormat.JSON,
             filters=[self.config_filter],
         )
-        self.project = Project(version="2.0.0", config_files=[self.config_file])
+        self.project = Project(version="2.0.0", config_files=[self.config_file])  # type: ignore[missing-argument]
 
         self.json_content = '{\n  "version": "1.0.0"\n}\n'
 
@@ -508,7 +508,6 @@ class TestValidateUpdate:
     def test_validate_update_special_characters_in_result(self) -> None:
         """_validate_update should handle special characters in result."""
         content = '{"version": "1.0.0-alpha+build.1"}'
-        # config_filter = ConfigFilter(expression=".version", result="1.0.0-alpha+build.1")
         self.config_filter.result = "1.0.0-alpha+build.1"
 
         # Should not raise

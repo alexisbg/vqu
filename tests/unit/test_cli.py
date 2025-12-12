@@ -96,8 +96,8 @@ class TestHandleArgs:
 
     def setup_method(self) -> None:
         """Setup before each test."""
-        self.project1 = Project(version="1.0.0", config_files=[])
-        self.project2 = Project(version="2.0.0", config_files=[])
+        self.project1 = Project(version="1.0.0", config_files=[])  # type: ignore[missing-argument]
+        self.project2 = Project(version="2.0.0", config_files=[])  # type: ignore[missing-argument]
         self.projects = {"project1": self.project1, "project2": self.project2}
 
     def test_handle_args_raises_when_update_without_project(self) -> None:

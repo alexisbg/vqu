@@ -1,4 +1,3 @@
-import json
 import os
 from pathlib import Path
 
@@ -16,11 +15,9 @@ def load_projects_from_json(path: str) -> dict[str, Project]:
             Project instances, loaded from the configuration file.
     """
     with open(path, "r") as file:
-        data = json.load(file)
+        root_config = RootConfig.model_validate_json(file.read())
 
         abs_path = Path(path).resolve()
         os.chdir(str(abs_path.parent))
-
-        root_config = RootConfig.from_dict(data)
 
         return root_config.projects
