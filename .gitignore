@@ -9,5 +9,8 @@ wheels/
 # Virtual environments
 .venv
 
-# VsCode settings
+## Coverage reports
+.coverage/
+
+## VsCode settings
 .vscode/

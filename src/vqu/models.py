@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel
+from pydantic.fields import Field
 
 
 class CliArgs(BaseModel):
@@ -50,7 +51,7 @@ class Project(BaseModel):
             that contain version numbers managed by this script.
     """
 
-    version: str
+    version: str = Field(..., min_length=1)
     config_files: list["ConfigFile"]
 
     @classmethod
@@ -76,7 +77,7 @@ class ConfigFile(BaseModel):
             value from this configuration file.
     """
 
-    path: str
+    path: str = Field(..., min_length=1)
     format: "ConfigFileFormat"
     filters: list["ConfigFilter"]
 
@@ -101,7 +102,7 @@ class ConfigFilter(BaseModel):
         result (str | None): The extracted version value, or None if not yet retrieved.
     """
 
-    expression: str
+    expression: str = Field(min_length=1)
     result: str | None = None
 
     @classmethod
