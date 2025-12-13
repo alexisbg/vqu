@@ -102,28 +102,14 @@ vqu -c ./examples/.vqu.yaml
 This will output version information for all configured projects with
 color-coded status:
 
-<pre>
-Project_1 <span style="color:green">0.1.1</span>
-  proj1/.env:
-    .VERSION = <span style="color:yellow">0.1.0</span>
-  proj1/conf.json:
-    .project.version = <span style="color:green">0.1.1</span>
-  proj1/conf.toml:
-    .project.version = <span style="color:yellow">0.1.0</span>
-
-Project_2 <span style="color:green">0.1.3</span>
-  proj2/conf.xml:
-    .Project.version = <span style="color:red">[Value not found]</span>
-  proj2/conf.yaml:
-    .project.version = <span style="color:yellow">0.1.2</span>
-</pre>
+<img src="https://github.com/alexisbg/vqu/raw/main/.github/images/vqu_example.webp" alt="vqu example output" width="382" style="width: 382px">
 
 **Color legend:**
-- <span style="color:green">**Green**:</span> Version matches the expected
+- 🟢 Version matches the expected
   project version
-- <span style="color:yellow">**Yellow**:</span> Version differs from the
+- 🟡 Version differs from the
   expected project version
-- <span style="color:red">**Red**:</span> Value not found or invalid version
+- 🔴 Value not found or invalid version
   format
 
 ## Command line usage
@@ -138,8 +124,7 @@ positional arguments:
 options:
   -c PATH, --config PATH
                         Path to the configuration file (default: .vqu.yaml).
-  -u, --update          Write the version numbers in the configuration
-                        files.
+  -u, --update          Write the version numbers in the configuration files.
   -h, --help            Show this help message and exit.
   -v, --version         Show the version and exit.
 ```
