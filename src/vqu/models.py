@@ -20,7 +20,7 @@ class CliArgs(BaseModel):
 
 
 class RootConfig(BaseModel):
-    """Data container for the JSON configuration file of this script.
+    """Data container for the vqu YAML file of this script.
 
     Attributes:
         projects (dict[str, Project]): A dictionary mapping project names to their corresponding
@@ -42,7 +42,7 @@ class Project(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     version: str = Field(..., min_length=1)
-    config_files: list["ConfigFile"] = Field(..., alias="configFiles")
+    config_files: list["ConfigFile"]
 
 
 class ConfigFile(BaseModel):

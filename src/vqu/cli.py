@@ -4,9 +4,9 @@ import shutil
 
 from termcolor import colored
 
-from vqu.json_config_file import load_projects_from_json
 from vqu.models import CliArgs, Project
 from vqu.project import eval_project, update_project
+from vqu.yaml_file import load_projects_from_yaml
 
 
 def main() -> None:
@@ -20,7 +20,7 @@ def main() -> None:
         check_yq()
 
         args = get_cli_args()
-        projects = load_projects_from_json(args.config_file_path)
+        projects = load_projects_from_yaml(args.config_file_path)
         handle_args(args, projects)
     except Exception as e:
         err = colored("[Error]", "red", attrs=["bold"])
@@ -62,8 +62,8 @@ def get_cli_args() -> CliArgs:
     parser.add_argument(
         "-c", "--config",
         metavar="PATH",
-        default=".vqu.json",
-        help="Path to the configuration file (default: .vqu.json).",
+        default=".vqu.yaml",
+        help="Path to the configuration file (default: .vqu.yaml).",
     )
     parser.add_argument(
         "-u", "--update",

@@ -26,7 +26,7 @@ class TestEvalProject:
             format=ConfigFileFormat.JSON,
             filters=[self.config_filter],
         )
-        self.project = Project(version="1.0.0", config_files=[self.config_file])  # type: ignore[missing-argument]
+        self.project = Project(version="1.0.0", config_files=[self.config_file])
 
     def test_eval_project_suppresses_output_when_print_result_false(
         self, mocker: MockerFixture, capsys: CaptureFixture
@@ -343,7 +343,7 @@ class TestUpdateProject:
             format=ConfigFileFormat.JSON,
             filters=[self.config_filter],
         )
-        self.project = Project(version="2.0.0", config_files=[self.config_file])  # type: ignore[missing-argument]
+        self.project = Project(version="2.0.0", config_files=[self.config_file])
 
         self.json_content = '{\n  "version": "1.0.0"\n}\n'
 

@@ -1,21 +1,24 @@
 import os
 from pathlib import Path
 
+import yaml
+
 from vqu.models import Project, RootConfig
 
 
-def load_projects_from_json(path: str) -> dict[str, Project]:
-    """Loads projects from the JSON configuration file.
+def load_projects_from_yaml(path: str) -> dict[str, Project]:
+    """Loads projects from the vqu YAML file.
 
     Args:
-        path (str): The file path to the JSON configuration file.
+        path (str): The path to the YAML file.
 
     Returns:
         dict[str, Project]: A dictionary mapping project names to their corresponding
             Project instances, loaded from the configuration file.
     """
     with open(path, "r") as file:
-        root_config = RootConfig.model_validate_json(file.read())
+        data = yaml.load(file, Loader=yaml.SafeLoader)
+        root_config = RootConfig(**data)
 
         abs_path = Path(path).resolve()
         os.chdir(str(abs_path.parent))

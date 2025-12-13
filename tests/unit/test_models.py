@@ -10,9 +10,9 @@ class TestCliArgs:
     @pytest.mark.parametrize(
         "proj,path,update",
         [
-            (42, "/path/.vqu.json", True),
+            (42, "/path/.vqu.yaml", True),
             ("project1", 42, True),
-            (None, "/path/.vqu.json", "wrong_type"),
+            (None, "/path/.vqu.yaml", "wrong_type"),
         ],
     )
     def test_cli_args_invalid_type(self, proj: str | None, path: str, update: bool) -> None:
@@ -22,10 +22,10 @@ class TestCliArgs:
 
     def test_cli_args_valid_creation(self) -> None:
         """Successful creation of CliArgs with valid data."""
-        sut = CliArgs(project="project1", config_file_path="/path/.vqu.json", update=True)
+        sut = CliArgs(project="project1", config_file_path="/path/.vqu.yaml", update=True)
 
         assert isinstance(sut.project, str)
-        assert sut.config_file_path == "/path/.vqu.json"
+        assert sut.config_file_path == "/path/.vqu.yaml"
         assert sut.update is True
 
 
@@ -45,7 +45,7 @@ class TestRootConfig:
 
     def test_root_config_valid_creation(self) -> None:
         """Successful creation of RootConfig with valid data."""
-        data = {"proj1": Project(version="1.0", config_files=[])}  # type: ignore[missing-argument]
+        data = {"proj1": Project(version="1.0", config_files=[])}
 
         sut = RootConfig(projects=data)
 
@@ -71,17 +71,17 @@ class TestProject:
     def test_project_invalid_version_type(self, version: str) -> None:
         """ValidationError is raised for invalid version types."""
         with pytest.raises(ValidationError):
-            Project(version=version, config_files=[])  # pyrefly: ignore[missing-argument]
+            Project(version=version, config_files=[])
 
     @pytest.mark.parametrize("config_files", invalid_config_files)
     def test_project_invalid_config_files_type(self, config_files: list) -> None:
         """ValidationError is raised for invalid config_files types."""
         with pytest.raises(ValidationError):
-            Project(version="1.0", config_files=config_files)  # pyrefly: ignore[missing-argument]
+            Project(version="1.0", config_files=config_files)
 
     def test_project_valid_creation(self) -> None:
         """Successful creation of Project with valid data."""
-        sut = Project(version="1.0", config_files=[])  # pyrefly: ignore[missing-argument]
+        sut = Project(version="1.0", config_files=[])
 
         assert isinstance(sut.version, str)
         assert sut.version == "1.0"

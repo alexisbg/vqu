@@ -13,7 +13,7 @@ class TestMain:
         """Main should print an error and exit with code 1 when an exception is raised."""
         mocker.patch.object(cli, "check_yq")  # Assume yq is present
         mocker.patch.object(cli, "get_cli_args")  # Assume args are fine
-        mocker.patch.object(cli, "load_projects_from_json")  # Assume loading works
+        mocker.patch.object(cli, "load_projects_from_yaml")  # Assume loading works
         mocker.patch.object(cli, "handle_args", side_effect=Exception("Unexpected error"))
 
         with pytest.raises(SystemExit) as se:
@@ -57,7 +57,7 @@ class TestGetCliArgs:
 
         assert isinstance(args, CliArgs)
         assert args.project is None
-        assert args.config_file_path == ".vqu.json"
+        assert args.config_file_path == ".vqu.yaml"
         assert args.update is False
 
     def test_get_cli_args_with_project(self, mocker: MockerFixture) -> None:
@@ -67,17 +67,17 @@ class TestGetCliArgs:
         args = cli.get_cli_args()
 
         assert args.project == "myproject"
-        assert args.config_file_path == ".vqu.json"
+        assert args.config_file_path == ".vqu.yaml"
         assert args.update is False
 
     def test_get_cli_args_with_config_long_option(self, mocker: MockerFixture) -> None:
         """get_cli_args with --config option should set config_file_path."""
-        mocker.patch("sys.argv", ["vqu", "--config", "/custom/.vqu.json"])
+        mocker.patch("sys.argv", ["vqu", "--config", "/custom/.vqu.yaml"])
 
         args = cli.get_cli_args()
 
         assert args.project is None
-        assert args.config_file_path == "/custom/.vqu.json"
+        assert args.config_file_path == "/custom/.vqu.yaml"
         assert args.update is False
 
     def test_get_cli_args_with_update_flag(self, mocker: MockerFixture) -> None:
@@ -87,7 +87,7 @@ class TestGetCliArgs:
         args = cli.get_cli_args()
 
         assert args.project == "myproject"
-        assert args.config_file_path == ".vqu.json"
+        assert args.config_file_path == ".vqu.yaml"
         assert args.update is True
 
 
@@ -96,13 +96,13 @@ class TestHandleArgs:
 
     def setup_method(self) -> None:
         """Setup before each test."""
-        self.project1 = Project(version="1.0.0", config_files=[])  # type: ignore[missing-argument]
-        self.project2 = Project(version="2.0.0", config_files=[])  # type: ignore[missing-argument]
+        self.project1 = Project(version="1.0.0", config_files=[])
+        self.project2 = Project(version="2.0.0", config_files=[])
         self.projects = {"project1": self.project1, "project2": self.project2}
 
     def test_handle_args_raises_when_update_without_project(self) -> None:
         """handle_args should raise ValueError when --update is used without a project."""
-        args = CliArgs(project=None, config_file_path=".vqu.json", update=True)
+        args = CliArgs(project=None, config_file_path=".vqu.yaml", update=True)
 
         with pytest.raises(ValueError) as exc:
             cli.handle_args(args, self.projects)
@@ -111,7 +111,7 @@ class TestHandleArgs:
 
     def test_handle_args_raises_when_project_not_found(self) -> None:
         """handle_args should raise ValueError when specified project not found."""
-        args = CliArgs(project="nonexistent", config_file_path=".vqu.json", update=False)
+        args = CliArgs(project="nonexistent", config_file_path=".vqu.yaml", update=False)
 
         with pytest.raises(ValueError) as exc:
             cli.handle_args(args, self.projects)
@@ -125,7 +125,7 @@ class TestHandleArgs:
         mock_eval = mocker.patch.object(cli, "eval_project")
         mock_update = mocker.patch.object(cli, "update_project")
 
-        args = CliArgs(project="project2", config_file_path=".vqu.json", update=False)
+        args = CliArgs(project="project2", config_file_path=".vqu.yaml", update=False)
 
         cli.handle_args(args, self.projects)
 
@@ -140,7 +140,7 @@ class TestHandleArgs:
         mock_update = mocker.patch.object(cli, "update_project")
         mock_eval = mocker.patch.object(cli, "eval_project")
 
-        args = CliArgs(project="project2", config_file_path=".vqu.json", update=True)
+        args = CliArgs(project="project2", config_file_path=".vqu.yaml", update=True)
 
         cli.handle_args(args, self.projects)
 
@@ -153,7 +153,7 @@ class TestHandleArgs:
         """handle_args should call eval_project for all projects when no project is specified."""
         mock_eval = mocker.patch.object(cli, "eval_project")
 
-        args = CliArgs(project=None, config_file_path=".vqu.json", update=False)
+        args = CliArgs(project=None, config_file_path=".vqu.yaml", update=False)
 
         cli.handle_args(args, self.projects)
 
