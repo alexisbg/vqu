@@ -1,19 +1,46 @@
 [project]
 name = "vqu"
 version = "0.1.0"
-description = "Version Queries and Updates for .env, JSON, TOML, XML and YAML configuration files."
+description = "Query and update version numbers across multiple configuration files."
 readme = "README.md"
+license = {file = "LICENSE.txt"}
 authors = [
-    { name = "Alexis Bergue", email = "alexis.bergue@gmail.com" }
+    { name = "Alexis Bergue" }
 ]
 requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Utilities",
+]
+keywords = [
+    "version", "dotenv", "json", "toml", "xml", "yaml", "config", "configuration", "file",
+    "management", "automation", "project", "projects", "monorepo", "cli"
+]
+
 dependencies = [
     "pydantic>=2.12.5",
+    "pyyaml>=6.0.3",
     "termcolor>=3.2.0",
 ]
 
 [project.scripts]
 vqu = "vqu.cli:main"
+
+[project.urls]
+Issues = "https://github.com/alexisbg/vqu/issues"
+Repository = "https://github.com/alexisbg/vqu"
 
 [build-system]
 requires = ["uv_build>=0.9.15,<0.10.0"]
@@ -44,9 +71,6 @@ skip_covered = true
 
 [tool.coverage.xml]
 output = ".coverage/cobertura.xml"
-
-[tool.mypy]
-strict = true
 
 [tool.pyrefly]
 python-version = "3.10"
