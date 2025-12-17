@@ -56,7 +56,7 @@ class TestLoadProjectsFromYaml:
             "projects": {
                 "project1": {
                     "version": "1.0.0",
-                    "configFiles": [],
+                    "config_files": [],
                 }
             }
         }
@@ -72,4 +72,4 @@ class TestLoadProjectsFromYaml:
         assert "project1" in result
         yaml_project1 = yaml_data["projects"]["project1"]
         assert result["project1"].version == yaml_project1["version"]
-        assert result["project1"].config_files == yaml_project1["configFiles"]
+        assert result["project1"].config_files == yaml_project1["config_files"]
