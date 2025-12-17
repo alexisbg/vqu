@@ -1,6 +1,6 @@
 [project]
 name = "vqu"
-version = "0.1.1"
+version = "0.1.2"
 description = "Query and update version numbers across multiple configuration files."
 readme = "README.md"
 license = {file = "LICENSE.txt"}
