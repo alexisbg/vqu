@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-import yaml
+import yaml  # pyrefly: ignore[untyped-import]
 
 from vqu.models import Project, RootConfig
 

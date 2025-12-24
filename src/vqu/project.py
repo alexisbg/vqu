@@ -5,7 +5,6 @@ import subprocess
 import sys
 from typing import cast
 
-from packaging.version import InvalidVersion, Version
 from termcolor import colored, cprint
 
 from vqu.models import ConfigFileFormat, ConfigFilter, Project
@@ -53,12 +52,12 @@ def eval_project(name: str, project: Project, print_result: bool = True) -> None
                 # fmt: on
                 result = subprocess.run(cmd, capture_output=True, text=True)
 
-                # Parse version value
-                version = _parse_captured_version(result.stdout)
-
-                # Store the retrieved version
-                if isinstance(version, str):
-                    config_filter.result = version
+                version: _ParsedVersion = None
+                try:
+                    config_filter.result = result.stdout  # Validate and assign result
+                    version = config_filter.result
+                except Exception:
+                    version = _InvalidValue()
 
                 # Print the version information
                 _print_version(version, project.version, config_filter.expression)
@@ -66,23 +65,6 @@ def eval_project(name: str, project: Project, print_result: bool = True) -> None
                 # Print the command if there was an error
                 if result.returncode:
                     print(f"    {shlex.join(cmd)}")
-
-
-def _parse_captured_version(output: str) -> _ParsedVersion:
-    """Parses the captured version output.
-
-    Args:
-        output (str): The captured output string.
-    """
-    output = output.strip()
-    if output and output.lower() != "null":
-        try:
-            Version(output)
-            return output  # Valid version string
-        except InvalidVersion:
-            return _InvalidValue()  # Invalid version string
-
-    return None
 
 
 def _print_version(version: _ParsedVersion, prj_version: str, filter_expr: str) -> None:
@@ -132,7 +114,7 @@ def update_project(name: str, project: Project) -> None:
         with open(config_file.path, "w") as file:
             file.write(content)
             cprint(
-                f"'{config_file.path}' has been updated to version {project.version}.",
+                f"{config_file.path!r} has been updated to version {project.version}.",
                 "green",
             )
 
@@ -151,12 +133,12 @@ def _validate_update(content: str, path: str, config_filter: ConfigFilter) -> No
     # Ensure that a value was retrieved
     if config_filter.result is None:
         raise ValueError(
-            f"No value retrieved for expression '{config_filter.expression}' in {path}."
+            f"No value retrieved for expression {config_filter.expression!r} in {path}."
         )
 
     # Count occurrences of the retrieved value
     count = content.count(config_filter.result)
     if count == 0:
-        raise ValueError(f"Value '{config_filter.result}' not found in {path}.")
+        raise ValueError(f"Value {config_filter.result!r} not found in {path}.")
     elif count > 1:
-        raise ValueError(f"Multiple occurrences of value '{config_filter.result}' found in {path}.")
+        raise ValueError(f"Multiple occurrences of value {config_filter.result!r} found in {path}.")

@@ -107,7 +107,7 @@ def handle_args(args: CliArgs, projects: dict[str, Project]) -> None:
     if args.project:
         project_obj = projects.get(args.project)
         if not project_obj:
-            raise ValueError(f"Project '{args.project}' not found in configuration.")
+            raise ValueError(f"Project {args.project!r} not found in configuration.")
 
         # Handle --update
         if args.update:

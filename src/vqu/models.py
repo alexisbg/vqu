@@ -1,7 +1,10 @@
-from enum import Enum
+from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
-from pydantic.fields import Field
+from enum import Enum
+import re
+
+from packaging.version import InvalidVersion, Version
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 
 class CliArgs(BaseModel):
@@ -14,7 +17,7 @@ class CliArgs(BaseModel):
             that the project attribute is set.
     """
 
-    project: str | None
+    project: str | None = None
     config_file_path: str
     update: bool
 
@@ -27,7 +30,7 @@ class RootConfig(BaseModel):
             Project instances, loaded from the configuration file.
     """
 
-    projects: dict[str, "Project"]
+    projects: dict[str, Project]
 
 
 class Project(BaseModel):
@@ -39,10 +42,8 @@ class Project(BaseModel):
             that contain version numbers managed by this script.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
-
     version: str = Field(..., min_length=1)
-    config_files: list["ConfigFile"]
+    config_files: list[ConfigFile]
 
 
 class ConfigFile(BaseModel):
@@ -57,20 +58,71 @@ class ConfigFile(BaseModel):
     """
 
     path: str = Field(..., min_length=1)
-    format: "ConfigFileFormat"
-    filters: list["ConfigFilter"]
+    format: ConfigFileFormat
+    filters: list[ConfigFilter]
 
 
-class ConfigFilter(BaseModel):
+class ConfigFilter(BaseModel, validate_assignment=True):
     """Data container for a configuration filter entry.
 
     Attributes:
         expression (str): The yq command syntax string used to extract or update the version value.
         result (str | None): The extracted version value, or None if not yet retrieved.
+        validate_docker_tag (bool | None): Whether to validate the result as a valid Docker tag.
+        validate_regex (str | None): A regex pattern to validate the result against.
     """
 
-    expression: str = Field(min_length=1)
+    expression: str = Field(..., min_length=1)
     result: str | None = None
+    validate_docker_tag: bool | None = None
+    validate_regex: str | None = Field(default=None, min_length=1)
+
+    @field_validator("result")
+    @classmethod
+    def validate_result(cls, value: str | None, info: ValidationInfo) -> str | None:
+        """Validates the result attribute based on the validation flags.
+
+        Args:
+            value (str | None): The result value to validate.
+            info (ValidationInfo): Additional validation information.
+
+        Returns:
+            str | None: The validated result value.
+
+        Raises:
+            ValueError: If the result does not pass the specified validations.
+        """
+        # Pydantic checks if value is a string or None before calling this validator
+        if value is None:
+            return value
+
+        value = value.strip()
+
+        # Not an empty string or contains null string
+        if not value or value.lower() == "null":
+            return None
+
+        # Validate as Docker tag
+        elif info.data.get("validate_docker_tag"):
+            if not re.fullmatch(r"[\w][\w.-]{0,127}", value):
+                raise ValueError(f"Filter result {value!r} is not a valid Docker tag.")
+
+        # Validate against regex if provided
+        elif info.data.get("validate_regex"):
+            if not re.fullmatch(info.data["validate_regex"], value):
+                raise ValueError(
+                    f"Filter result {value!r} does not match the regex pattern "
+                    + f"{info.data['validate_regex']!r}."
+                )
+
+        # Validate as Python packaging version
+        else:
+            try:
+                Version(value)
+            except InvalidVersion:
+                raise ValueError(f"Filter result {value!r} is not a valid version string.")
+
+        return value
 
 
 class ConfigFileFormat(str, Enum):
@@ -88,10 +140,10 @@ class ConfigFileFormat(str, Enum):
         return value in cls._value2member_map_
 
     @classmethod
-    def to_yq_format(cls, value: "ConfigFileFormat") -> str:
+    def to_yq_format(cls, value: ConfigFileFormat) -> str:
         """Convert some enum values to the corresponding yq format string."""
         conversion_map: dict[ConfigFileFormat, str] = {
-            ConfigFileFormat.DOTENV: "props",
+            cls.DOTENV: "props",
         }
 
         return conversion_map.get(value, value.value)

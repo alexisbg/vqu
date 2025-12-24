@@ -7,7 +7,6 @@ from pytest_mock import MockerFixture
 from vqu.models import ConfigFile, ConfigFileFormat, ConfigFilter, Project
 from vqu.project import (
     _InvalidValue,
-    _parse_captured_version,
     _print_version,
     _validate_update,
     eval_project,
@@ -20,7 +19,7 @@ class TestEvalProject:
 
     def setup_method(self) -> None:
         """Setup a default project before each test."""
-        self.config_filter = ConfigFilter(expression=".version", result=None)
+        self.config_filter = ConfigFilter(expression=".version")
         self.config_file = ConfigFile(
             path="package.json",
             format=ConfigFileFormat.JSON,
@@ -33,13 +32,14 @@ class TestEvalProject:
     ) -> None:
         """eval_project should suppress output when print_result=False."""
         mocker.patch("vqu.project.ConfigFileFormat.to_yq_format", return_value="json")
-        mocker.patch("vqu.project._parse_captured_version", return_value="1.0.0")
         mocker.patch("vqu.project._print_version")
         mocker.patch("os.path.exists", return_value=True)
         mocker.patch(
             "subprocess.run",
             return_value=mocker.MagicMock(stdout="1.0.0", returncode=0),
         )
+
+        self.config_filter.result = "1.0.0"
 
         eval_project("myproject", self.project, print_result=False)
 
@@ -50,12 +50,6 @@ class TestEvalProject:
         self, mocker: MockerFixture, capsys: CaptureFixture
     ) -> None:
         """eval_project should print project name and version."""
-        mocker.patch("vqu.project.ConfigFileFormat.to_yq_format")
-        mocker.patch("vqu.project._parse_captured_version", return_value=None)
-        mocker.patch("vqu.project._print_version")
-        mocker.patch("os.path.exists", return_value=True)
-        mocker.patch("subprocess.run")
-
         self.project.config_files = []
 
         eval_project("myproject", self.project)
@@ -68,9 +62,6 @@ class TestEvalProject:
         self, mocker: MockerFixture, capsys: CaptureFixture
     ) -> None:
         """eval_project should print [File not found] for missing files."""
-        mocker.patch("vqu.project.ConfigFileFormat.to_yq_format")
-        mocker.patch("vqu.project._parse_captured_version")
-        mocker.patch("vqu.project._print_version")
         mocker.patch("os.path.exists", return_value=False)
 
         config_file = ConfigFile(
@@ -88,7 +79,6 @@ class TestEvalProject:
 
     def test_eval_project_with_empty_filters_in_config_file(self, mocker: MockerFixture) -> None:
         """eval_project should handle config file with no filters."""
-        mocker.patch("vqu.project.ConfigFileFormat.to_yq_format", return_value="json")
         mocker.patch("os.path.exists", return_value=True)
         mock_subprocess = mocker.patch(
             "subprocess.run",
@@ -104,13 +94,14 @@ class TestEvalProject:
     def test_eval_project_builds_correct_yq_command(self, mocker: MockerFixture) -> None:
         """eval_project should build the correct yq command."""
         mocker.patch("vqu.project.ConfigFileFormat.to_yq_format", return_value="json")
-        mocker.patch("vqu.project._parse_captured_version", return_value="1.0.0")
         mocker.patch("vqu.project._print_version")
         mocker.patch("os.path.exists", return_value=True)
         mock_subprocess = mocker.patch(
             "subprocess.run",
             return_value=mocker.MagicMock(stdout="1.0.0", returncode=0),
         )
+
+        self.config_filter.result = "1.0.0"
 
         eval_project("myproject", self.project)
 
@@ -126,7 +117,6 @@ class TestEvalProject:
     def test_eval_project_processes_config_file(self, mocker: MockerFixture) -> None:
         """eval_project should process config file when it exists."""
         mock_to_yq = mocker.patch("vqu.project.ConfigFileFormat.to_yq_format", return_value="json")
-        mock_parse = mocker.patch("vqu.project._parse_captured_version", return_value="1.0.0")
         mock_print_version = mocker.patch("vqu.project._print_version")
         mocker.patch("os.path.exists", return_value=True)
         mock_subprocess = mocker.patch(
@@ -134,26 +124,26 @@ class TestEvalProject:
             return_value=mocker.MagicMock(stdout="1.0.0", returncode=0),
         )
 
+        self.config_filter.result = "1.0.0"
+
         eval_project("myproject", self.project)
 
         mock_to_yq.assert_called_once_with(ConfigFileFormat.JSON)
         mock_subprocess.assert_called_once()
-        mock_parse.assert_called_once_with("1.0.0")
         assert self.project.config_files[0].filters[0].result == "1.0.0"
         mock_print_version.assert_called_once_with("1.0.0", "1.0.0", ".version")
 
-    @pytest.mark.parametrize("parsed_output", [(_InvalidValue()), (None)])
+    @pytest.mark.parametrize("yq_output", ["invalid", None])
     def test_eval_project_does_not_store_value(
-        self, mocker: MockerFixture, parsed_output: _InvalidValue | None
+        self, mocker: MockerFixture, yq_output: str | None
     ) -> None:
         """eval_project should not store _InvalidValue result in config_filter.result."""
         mocker.patch("vqu.project.ConfigFileFormat.to_yq_format", return_value="json")
-        mocker.patch("vqu.project._parse_captured_version", return_value=parsed_output)
         mocker.patch("vqu.project._print_version")
         mocker.patch("os.path.exists", return_value=True)
         mocker.patch(
             "subprocess.run",
-            return_value=mocker.MagicMock(stdout="invalid", returncode=0),
+            return_value=mocker.MagicMock(stdout=yq_output, returncode=0),
         )
 
         eval_project("myproject", self.project)
@@ -165,13 +155,14 @@ class TestEvalProject:
     ) -> None:
         """eval_project should print the yq command when returncode is non-zero."""
         mocker.patch("vqu.project.ConfigFileFormat.to_yq_format", return_value="json")
-        mocker.patch("vqu.project._parse_captured_version", return_value=None)
         mocker.patch("vqu.project._print_version")
         mocker.patch("os.path.exists", return_value=True)
         mocker.patch(
             "subprocess.run",
             return_value=mocker.MagicMock(stdout="", returncode=1),
         )
+
+        self.config_filter.result = None
 
         eval_project("myproject", self.project)
 
@@ -181,7 +172,6 @@ class TestEvalProject:
     def test_eval_project_processes_multiple_config_files(self, mocker: MockerFixture) -> None:
         """eval_project should process all config files."""
         mocker.patch("vqu.project.ConfigFileFormat.to_yq_format", return_value="json")
-        mocker.patch("vqu.project._parse_captured_version", return_value="1.0.0")
         mocker.patch("vqu.project._print_version")
         mocker.patch("os.path.exists", return_value=True)
         mock_subprocess = mocker.patch(
@@ -189,10 +179,11 @@ class TestEvalProject:
             return_value=mocker.MagicMock(stdout="1.0.0", returncode=0),
         )
 
+        self.config_filter.result = "1.0.0"
         config_file2 = ConfigFile(
             path="pyproject.toml",
             format=ConfigFileFormat.YAML,
-            filters=[ConfigFilter(expression=".project.version", result=None)],
+            filters=[ConfigFilter(expression=".project.version")],
         )
         self.project.config_files.append(config_file2)
 
@@ -203,7 +194,6 @@ class TestEvalProject:
     def test_eval_project_processes_multiple_filters_per_file(self, mocker: MockerFixture) -> None:
         """eval_project should process all filters in a config file."""
         mocker.patch("vqu.project.ConfigFileFormat.to_yq_format", return_value="json")
-        mocker.patch("vqu.project._parse_captured_version", return_value="1.0.0")
         mocker.patch("vqu.project._print_version")
         mocker.patch("os.path.exists", return_value=True)
         mock_subprocess = mocker.patch(
@@ -211,93 +201,12 @@ class TestEvalProject:
             return_value=mocker.MagicMock(stdout="1.0.0", returncode=0),
         )
 
-        self.config_file.filters.append(ConfigFilter(expression=".packageVersion", result=None))
+        self.config_filter.result = "1.0.0"
+        self.config_file.filters.append(ConfigFilter(expression=".packageVersion"))
 
         eval_project("myproject", self.project)
 
         assert mock_subprocess.call_count == 2
-
-
-class TestParseCapturedVersion:
-    """Unit tests for the _parse_captured_version function."""
-
-    def test_parse_captured_version_valid_version(self) -> None:
-        """Should return the version string for a valid semantic version."""
-        result = _parse_captured_version("1.0.0")
-
-        assert result == "1.0.0"
-
-    def test_parse_captured_version_valid_version_with_whitespace(self) -> None:
-        """Should strip whitespace and return valid version."""
-        result = _parse_captured_version("  2.5.3  \n")
-
-        assert result == "2.5.3"
-
-    def test_parse_captured_version_null_string(self) -> None:
-        """Should return None for 'null' string."""
-        result = _parse_captured_version("null")
-
-        assert result is None
-
-    def test_parse_captured_version_null_uppercase(self) -> None:
-        """Should return None for 'NULL' (case-insensitive)."""
-        result = _parse_captured_version("NULL")
-
-        assert result is None
-
-    def test_parse_captured_version_empty_string(self) -> None:
-        """Should return None for empty string."""
-        result = _parse_captured_version("")
-
-        assert result is None
-
-    def test_parse_captured_version_invalid_version_format(self) -> None:
-        """Should return _InvalidValue for invalid version format."""
-        result = _parse_captured_version("not.a.version")
-
-        assert isinstance(result, _InvalidValue)
-
-    def test_parse_captured_version_invalid_letters(self) -> None:
-        """Should return _InvalidValue for string with letters."""
-        result = _parse_captured_version("abc")
-
-        assert isinstance(result, _InvalidValue)
-
-    def test_parse_captured_version_invalid_special_characters(self) -> None:
-        """Should return _InvalidValue for invalid special characters."""
-        result = _parse_captured_version("1.0.0@")
-
-        assert isinstance(result, _InvalidValue)
-
-    def test_parse_captured_version_invalid_hyphen_prefix(self) -> None:
-        """Should return _InvalidValue for version with invalid prefix."""
-        result = _parse_captured_version("-1.0.0")
-
-        assert isinstance(result, _InvalidValue)
-
-    def test_parse_captured_version_prerelease(self) -> None:
-        """Should handle semantic version with prerelease."""
-        result = _parse_captured_version("1.0.0-alpha")
-
-        assert result == "1.0.0-alpha"
-
-    def test_parse_captured_version_build_metadata(self) -> None:
-        """Should handle semantic version with build metadata."""
-        result = _parse_captured_version("1.0.0+build.1")
-
-        assert result == "1.0.0+build.1"
-
-    def test_parse_captured_version_prerelease_and_build(self) -> None:
-        """Should handle semantic version with prerelease and build metadata."""
-        result = _parse_captured_version("1.0.0-beta+exp.sha")
-
-        assert result == "1.0.0-beta+exp.sha"
-
-    def test_parse_captured_version_decimal_build_number(self) -> None:
-        """Should return _InvalidValue for decimal numbers."""
-        result = _parse_captured_version("1.0.0.42")
-
-        assert result == "1.0.0.42"
 
 
 class TestPrintVersion:

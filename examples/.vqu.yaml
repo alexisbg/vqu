@@ -25,3 +25,16 @@ projects:
         format: yaml
         filters:
           - expression: .project.version
+  Nginx_Service:
+    version: stable-alpine3.21
+    config_files:
+      - path: compose.yaml
+        format: yaml
+        filters:
+          - expression: .services.service2.image | split(":")[1]
+            validate_docker_tag: true
+      - path: proj2/conf.xml
+        format: xml
+        filters:
+          - expression: .Project.ImageTag
+            validate_regex: "[\\w.-]{1,50}"

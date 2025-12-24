@@ -137,42 +137,156 @@ class TestConfigFile:
 class TestConfigFilter:
     """Unit tests for the ConfigFilter class."""
 
-    invalid_expression = [
-        (42),  # expression not a string
-        (""),  # empty string
-    ]
-    invalid_result = [
-        (42),  # result not a string or None
-    ]
-
-    @pytest.mark.parametrize("expression", invalid_expression)
+    @pytest.mark.parametrize("expression", [42, ""])
     def test_config_filter_invalid_expression_type(self, expression: str) -> None:
         """ValidationError is raised for invalid expression types."""
         with pytest.raises(ValidationError):
-            ConfigFilter(expression=expression, result=None)
+            ConfigFilter(expression=expression)
 
-    @pytest.mark.parametrize("result", invalid_result)
-    def test_config_filter_invalid_result_type(self, result: str | None) -> None:
+    def test_config_filter_invalid_validate_docker_tag_type(self) -> None:
+        """ValidationError is raised for invalid validate_docker_tag types."""
+        with pytest.raises(ValidationError):
+            ConfigFilter(expression=".version", validate_docker_tag="not_bool")  # type: ignore[invalid-argument-type]
+
+    def test_config_filter_invalid_validate_regex_type(self) -> None:
+        """ValidationError is raised for invalid validate_regex types."""
+        with pytest.raises(ValidationError):
+            ConfigFilter(expression=".version", validate_regex=42)  # type: ignore[bad-argument-type]
+
+    def test_config_filter_invalid_result_type(self) -> None:
         """ValidationError is raised for invalid result types."""
         with pytest.raises(ValidationError):
-            ConfigFilter(expression=".version", result=result)
+            sut = ConfigFilter(expression=".version")
+            sut.result = 42  # type: ignore[bad-assignment]
 
-    def test_config_filter_valid_creation_without_result(self) -> None:
-        """Successful creation of ConfigFilter without result."""
+    def test_config_filter_keep_result_none(self) -> None:
+        """Result set to None remains None."""
         sut = ConfigFilter(expression=".version")
+        sut.result = None
 
-        assert isinstance(sut.expression, str)
-        assert sut.expression == ".version"
         assert sut.result is None
 
+    def test_config_filter_strip_result_whitespace(self) -> None:
+        """Result with leading/trailing whitespace is stripped."""
+        sut = ConfigFilter(expression=".version")
+        sut.result = "  1.0  \n"
+
+        assert sut.result == "1.0"
+
+    @pytest.mark.parametrize("result", [(""), ("   "), ("null"), ("NULL")])
+    def test_config_filter_result_set_to_empty_string_or_null_string(self, result: str) -> None:
+        """Result set to empty string or null string becomes None."""
+        sut = ConfigFilter(expression=".version")
+        sut.result = result
+
+        assert sut.result is None
+
+    def test_config_filter_invalid_result_with_expression_only(self) -> None:
+        """ValidationError raised for invalid result."""
+        with pytest.raises(ValidationError):
+            sut = ConfigFilter(expression=".version")
+            sut.result = "1.0.0-invalid"
+
+    def test_config_filter_invalid_result_with_validate_docker_tag(self) -> None:
+        """ValidationError raised for invalid Docker tag result."""
+        with pytest.raises(ValidationError):
+            sut = ConfigFilter(expression=".version", validate_docker_tag=True)
+            sut.result = "invalid.tag!"
+
+    def test_config_filter_invalid_result_with_validate_regex(self) -> None:
+        """ValidationError raised for result not matching regex pattern."""
+        with pytest.raises(ValidationError):
+            sut = ConfigFilter(expression=".version", validate_regex=r"^v\d+\.\d+\.\d+$")
+            sut.result = "1.2.3"
+
+    def test_config_filter_invalid_result_with_special_characters(self) -> None:
+        """ValidationError raised for result with special characters."""
+        with pytest.raises(ValidationError):
+            sut = ConfigFilter(expression=".version")
+            sut.result = "1.0.0@"
+
+    def test_config_filter_invalid_result_with_hyphen_prefix(self) -> None:
+        """ValidationError raised for result with hyphen prefix."""
+        with pytest.raises(ValidationError):
+            sut = ConfigFilter(expression=".version")
+            sut.result = "-1.0.0"
+
+    def test_config_filter_valid_result_with_expression_only(self) -> None:
+        """Result setter validates with expression only."""
+        sut = ConfigFilter(expression=".version")
+        sut.result = "2.0.0"
+
+        assert sut.expression == ".version"
+        assert sut.result == "2.0.0"
+
+    def test_config_filter_valid_result_with_validate_docker_tag(self) -> None:
+        """Result setter validates with valid Docker tag."""
+        sut = ConfigFilter(expression=".version", validate_docker_tag=True)
+        sut.result = "1.0-alpha_1"
+
+        assert sut.validate_docker_tag is True
+        assert sut.result == "1.0-alpha_1"
+
+    def test_config_filter_valid_result_with_validate_regex(self) -> None:
+        """Result setter validates with result matching regex pattern."""
+        sut = ConfigFilter(expression=".version", validate_regex=r"^v\d+\.\d+\.\d+$")
+        sut.result = "v1.2.3"
+
+        assert sut.validate_regex == r"^v\d+\.\d+\.\d+$"
+        assert sut.result == "v1.2.3"
+
+    def test_config_filter_valid_result_with_v_prefix(self) -> None:
+        """Result setter validates with 'v' prefix in version."""
+        sut = ConfigFilter(expression=".app.version")
+        sut.result = "v1.0.0"
+
+        assert sut.result == "v1.0.0"
+
+    def test_config_filter_valid_result_with_prerelease(self) -> None:
+        """Result setter validates with prerelease version."""
+        sut = ConfigFilter(expression=".app.version")
+        sut.result = "1.0.0-beta.1"
+
+        assert sut.result == "1.0.0-beta.1"
+
+    def test_config_filter_valid_result_with_build_metadata(self) -> None:
+        """Result setter validates with build metadata in version."""
+        sut = ConfigFilter(expression=".app.version")
+        sut.result = "1.0.0+build.123"
+
+        assert sut.result == "1.0.0+build.123"
+
+    def test_config_filter_valid_result_with_prerelease_and_build_metadata(self) -> None:
+        """Result setter validates with prerelease and build metadata."""
+        sut = ConfigFilter(expression=".app.version")
+        sut.result = "1.0.0-rc.1+build.456"
+
+        assert sut.result == "1.0.0-rc.1+build.456"
+
+    def test_config_filter_valid_result_with_decimal_build_number(self) -> None:
+        """Result setter validates with decimal build number."""
+        sut = ConfigFilter(expression=".app.version")
+        sut.result = "2.1.0.42"
+
+        assert sut.result == "2.1.0.42"
+
     def test_config_filter_valid_creation_with_result(self) -> None:
-        """Successful creation of ConfigFilter with result."""
+        """Successful creation of ConfigFilter instance with result."""
         sut = ConfigFilter(expression=".app.version", result="1.2.3")
 
-        assert isinstance(sut.expression, str)
         assert sut.expression == ".app.version"
-        assert isinstance(sut.result, str)
         assert sut.result == "1.2.3"
+
+    def test_config_filter_docker_tag_precedence_over_regex(self) -> None:
+        """Docker tag validation takes precedence over regex validation."""
+        sut = ConfigFilter(
+            expression=".version",
+            validate_docker_tag=True,
+            validate_regex=r"^v\d+\.\d+\.\d+$",
+        )
+        sut.result = "2.4.2-beta"
+
+        assert sut.result == "2.4.2-beta"
 
 
 class TestConfigFileFormat:

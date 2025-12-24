@@ -1,4 +1,5 @@
 <Project>
   <Name>proj2</Name>
   <Version>0.1.2</Version>
+  <ImageTag>stable-alpine3.21</ImageTag>
 </Project>
