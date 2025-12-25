@@ -20,7 +20,10 @@ class TestMain:
             cli.main()
 
         out: str = capsys.readouterr().out
-        assert out.startswith("[Error]")
+        bold = "\x1b[1m"
+        red = "\x1b[31m"
+        reset = "\x1b[0m"
+        assert out.startswith(f"{bold}{red}[Error]{reset} Unexpected error")
         assert se.value.code == 1
 
 

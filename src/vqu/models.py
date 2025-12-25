@@ -4,7 +4,7 @@ from enum import Enum
 import re
 
 from packaging.version import InvalidVersion, Version
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 
 class CliArgs(BaseModel):
@@ -62,7 +62,7 @@ class ConfigFile(BaseModel):
     filters: list[ConfigFilter]
 
 
-class ConfigFilter(BaseModel, validate_assignment=True):
+class ConfigFilter(BaseModel):
     """Data container for a configuration filter entry.
 
     Attributes:
@@ -72,15 +72,17 @@ class ConfigFilter(BaseModel, validate_assignment=True):
         validate_regex (str | None): A regex pattern to validate the result against.
     """
 
+    model_config = ConfigDict(validate_assignment=True)
+
     expression: str = Field(..., min_length=1)
     result: str | None = None
     validate_docker_tag: bool | None = None
     validate_regex: str | None = Field(default=None, min_length=1)
 
-    @field_validator("result")
+    @field_validator("result", mode="after")
     @classmethod
     def validate_result(cls, value: str | None, info: ValidationInfo) -> str | None:
-        """Validates the result attribute based on the validation flags.
+        """Validates the result attribute based on the other attributes if set.
 
         Args:
             value (str | None): The result value to validate.
@@ -95,8 +97,6 @@ class ConfigFilter(BaseModel, validate_assignment=True):
         # Pydantic checks if value is a string or None before calling this validator
         if value is None:
             return value
-
-        value = value.strip()
 
         # Not an empty string or contains null string
         if not value or value.lower() == "null":

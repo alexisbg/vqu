@@ -166,14 +166,7 @@ class TestConfigFilter:
 
         assert sut.result is None
 
-    def test_config_filter_strip_result_whitespace(self) -> None:
-        """Result with leading/trailing whitespace is stripped."""
-        sut = ConfigFilter(expression=".version")
-        sut.result = "  1.0  \n"
-
-        assert sut.result == "1.0"
-
-    @pytest.mark.parametrize("result", [(""), ("   "), ("null"), ("NULL")])
+    @pytest.mark.parametrize("result", ["", "null", "NULL", "Null"])
     def test_config_filter_result_set_to_empty_string_or_null_string(self, result: str) -> None:
         """Result set to empty string or null string becomes None."""
         sut = ConfigFilter(expression=".version")

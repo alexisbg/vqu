@@ -50,12 +50,14 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "coverage>=7.13.0",
-    "pyrefly>=0.46.0",
+    "pyrefly>=0.46.1",
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
+    "pytest-env>=1.2.0",
     "pytest-mock>=3.15.1",
     "ruff>=0.14.10",
-    "ty>=0.0.6",
+    "ty>=0.0.7",
+    "types-pyyaml>=6.0.12.20250915",
 ]
 
 [tool.coverage.run]
@@ -75,3 +77,6 @@ output = ".coverage/cobertura.xml"
 
 [tool.pyrefly]
 python-version = "3.10"
+
+[tool.pytest_env]
+FORCE_COLOR = "1"

@@ -1,22 +1,15 @@
 from contextlib import redirect_stdout
+import io
 import os
 import shlex
 import subprocess
 import sys
 from typing import cast
 
+from pydantic import ValidationError
 from termcolor import colored, cprint
 
 from vqu.models import ConfigFileFormat, ConfigFilter, Project
-
-
-class _InvalidValue:
-    """Sentinel class representing an invalid value."""
-
-    pass
-
-
-_ParsedVersion = str | _InvalidValue | None
 
 
 def eval_project(name: str, project: Project, print_result: bool = True) -> None:
@@ -28,7 +21,7 @@ def eval_project(name: str, project: Project, print_result: bool = True) -> None
         print_result (bool): If False, suppresses the output.
     """
     # Redirect output to null if print_result is False
-    with redirect_stdout(sys.stdout if print_result else open(os.devnull, "w")):
+    with redirect_stdout(sys.stdout if print_result else io.StringIO()):  # type: ignore[bad-argument-type]
         expected_version = colored(project.version, "green")
         print(f"{name} {expected_version}")
 
@@ -40,9 +33,9 @@ def eval_project(name: str, project: Project, print_result: bool = True) -> None
 
             print(f"  {config_file.path}:")
 
-            for config_filter in config_file.filters:
-                file_format = ConfigFileFormat.to_yq_format(config_file.format)
+            file_format = ConfigFileFormat.to_yq_format(config_file.format)
 
+            for config_filter in config_file.filters:
                 # Build and run the yq command
                 # fmt: off
                 cmd = [
@@ -52,33 +45,38 @@ def eval_project(name: str, project: Project, print_result: bool = True) -> None
                 # fmt: on
                 result = subprocess.run(cmd, capture_output=True, text=True)
 
-                version: _ParsedVersion = None
+                version = result.stdout.strip()
+                is_invalid: bool = False
                 try:
-                    config_filter.result = result.stdout  # Validate and assign result
-                    version = config_filter.result
-                except Exception:
-                    version = _InvalidValue()
+                    # The setter validates the provided value and it can raise exceptions if the
+                    # value is invalid.
+                    config_filter.result = version
+                except ValidationError:
+                    is_invalid = True
 
                 # Print the version information
-                _print_version(version, project.version, config_filter.expression)
+                _print_version(version, is_invalid, project.version, config_filter.expression)
 
                 # Print the command if there was an error
                 if result.returncode:
                     print(f"    {shlex.join(cmd)}")
 
 
-def _print_version(version: _ParsedVersion, prj_version: str, filter_expr: str) -> None:
+def _print_version(
+    version: str | None, is_version_invalid: bool, prj_version: str, filter_expr: str
+) -> None:
     """Prints the version information with appropriate coloring based on its validity.
 
     Args:
-        version (_ParsedVersion): The parsed version value from the configuration file.
+        version (str | None): The parsed version value from the configuration file.
+        is_version_invalid (bool): Whether the parsed version is invalid.
         prj_version (str): The expected project version.
         filter_expr (str): The filter expression used to retrieve the version.
     """
-    if version is None:
+    if is_version_invalid:
+        version_msg = colored(f"[Invalid version] {version}", "red")
+    elif version is None:
         version_msg = colored("[Value not found]", "red")
-    elif isinstance(version, _InvalidValue):
-        version_msg = colored("[Invalid version]", "red")
     # The versions differ
     elif version != prj_version:
         version_msg = colored(version, "yellow")
