@@ -10,13 +10,13 @@ from vqu.yaml_file import load_projects_from_yaml
 class TestLoadProjectsFromYaml:
     """Unit tests for the load_projects_from_yaml function."""
 
-    def test_load_projects_from_yaml_not_found(self) -> None:
+    def test_raise_file_not_found_error(self) -> None:
         """FileNotFoundError is raised when the file doesn't exist."""
         with pytest.raises(FileNotFoundError):
             load_projects_from_yaml("/nonexistent/path/.vqu.yaml")
 
-    def test_load_projects_invalid_yaml(self, mocker: MockerFixture) -> None:
-        """ValidationError is raised for invalid YAML content."""
+    def test_raise_parser_error_with_invalid_yaml_file(self, mocker: MockerFixture) -> None:
+        """ParserError is raised for invalid YAML content."""
         invalid_yaml = "{ invalid yaml content"
 
         # Patching "builtins.open" fails in some environments, so it is replaced by the module
@@ -27,7 +27,9 @@ class TestLoadProjectsFromYaml:
         with pytest.raises(ParserError):
             load_projects_from_yaml("/fake/path/config.yaml")
 
-    def test_load_projects_invalid_yaml_structure(self, mocker: MockerFixture) -> None:
+    def test_raise_validation_error_with_invalid_yaml_structure(
+        self, mocker: MockerFixture
+    ) -> None:
         """ValidationError is raised for YAML content with invalid structure."""
         yaml_data: dict[str, dict] = {
             "projects": {
@@ -43,14 +45,14 @@ class TestLoadProjectsFromYaml:
         with pytest.raises(ValidationError):
             load_projects_from_yaml("/fake/path/config.yaml")
 
-    def test_load_projects_permission_error(self, mocker: MockerFixture) -> None:
+    def test_raise_permission_error_when_file_cannot_be_read(self, mocker: MockerFixture) -> None:
         """PermissionError is raised when file cannot be read."""
         mocker.patch("vqu.yaml_file.open", side_effect=PermissionError("Permission denied"))
 
         with pytest.raises(PermissionError):
             load_projects_from_yaml("/denied/path/config.yaml")
 
-    def test_load_projects_from_yaml_success(self, mocker: MockerFixture) -> None:
+    def test_success_with_valid_yaml(self, mocker: MockerFixture) -> None:
         """Successful loading of projects from a valid YAML file."""
         yaml_data: dict[str, dict] = {
             "projects": {

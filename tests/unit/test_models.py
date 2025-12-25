@@ -15,12 +15,12 @@ class TestCliArgs:
             (None, "/path/.vqu.yaml", "wrong_type"),
         ],
     )
-    def test_cli_args_invalid_type(self, proj: str | None, path: str, update: bool) -> None:
+    def test_invalid_type(self, proj: str | None, path: str, update: bool) -> None:
         """ValidationError is raised for invalid types."""
         with pytest.raises(ValidationError):
             CliArgs(project=proj, config_file_path=path, update=update)
 
-    def test_cli_args_valid_creation(self) -> None:
+    def test_valid_creation(self) -> None:
         """Successful creation of CliArgs with valid data."""
         sut = CliArgs(project="project1", config_file_path="/path/.vqu.yaml", update=True)
 
@@ -38,12 +38,12 @@ class TestRootConfig:
     ]
 
     @pytest.mark.parametrize("projects", invalid_projects)
-    def test_root_config_invalid_type(self, projects: dict[str, Project]) -> None:
+    def test_invalid_type(self, projects: dict[str, Project]) -> None:
         """Test ValidationError is raised for invalid types."""
         with pytest.raises(ValidationError):
             RootConfig(projects=projects)
 
-    def test_root_config_valid_creation(self) -> None:
+    def test_valid_creation(self) -> None:
         """Successful creation of RootConfig with valid data."""
         data = {"proj1": Project(version="1.0", config_files=[])}
 
@@ -68,18 +68,18 @@ class TestProject:
     ]
 
     @pytest.mark.parametrize("version", invalid_version)
-    def test_project_invalid_version_type(self, version: str) -> None:
+    def test_invalid_version_type(self, version: str) -> None:
         """ValidationError is raised for invalid version types."""
         with pytest.raises(ValidationError):
             Project(version=version, config_files=[])
 
     @pytest.mark.parametrize("config_files", invalid_config_files)
-    def test_project_invalid_config_files_type(self, config_files: list) -> None:
+    def test_invalid_config_files_type(self, config_files: list) -> None:
         """ValidationError is raised for invalid config_files types."""
         with pytest.raises(ValidationError):
             Project(version="1.0", config_files=config_files)
 
-    def test_project_valid_creation(self) -> None:
+    def test_valid_creation(self) -> None:
         """Successful creation of Project with valid data."""
         sut = Project(version="1.0", config_files=[])
 
@@ -92,38 +92,25 @@ class TestProject:
 class TestConfigFile:
     """Unit tests for the ConfigFile class."""
 
-    invalid_path = [
-        (42),  # path not a string
-        (""),  # path empty string
-    ]
-    invalid_format = [
-        (42),  # format not a string
-        ("invalid_format"),  # format not a valid ConfigFileFormat
-    ]
-    invalid_filters = [
-        ("not_a_list"),  # filters not a list
-        ([42]),  # filters contains non-dict
-    ]
-
-    @pytest.mark.parametrize("path", invalid_path)
-    def test_config_file_invalid_path_type(self, path: str) -> None:
+    @pytest.mark.parametrize("path", [42, ""])
+    def test_invalid_path_type(self, path: str) -> None:
         """ValidationError is raised for invalid path types."""
         with pytest.raises(ValidationError):
             ConfigFile(path=path, format=ConfigFileFormat.JSON, filters=[])
 
-    @pytest.mark.parametrize("format", invalid_format)
-    def test_config_file_invalid_format_type(self, format: ConfigFileFormat) -> None:
+    @pytest.mark.parametrize("format", [42, "invalid_format"])
+    def test_invalid_format_type(self, format: ConfigFileFormat) -> None:
         """ValidationError is raised for invalid format types."""
         with pytest.raises(ValidationError):
             ConfigFile(path="config.json", format=format, filters=[])
 
-    @pytest.mark.parametrize("filters", invalid_filters)
-    def test_config_file_invalid_filters_type(self, filters: list) -> None:
+    @pytest.mark.parametrize("filters", ["not_a_list", [42]])
+    def test_invalid_filters_type(self, filters: list) -> None:
         """ValidationError is raised for invalid filters type."""
         with pytest.raises(ValidationError):
             ConfigFile(path="config.json", format=ConfigFileFormat.JSON, filters=filters)
 
-    def test_config_file_valid_creation(self) -> None:
+    def test_valid_creation(self) -> None:
         """Successful creation of ConfigFile with valid data."""
         sut = ConfigFile(path="config.json", format=ConfigFileFormat.JSON, filters=[])
 
@@ -138,28 +125,28 @@ class TestConfigFilter:
     """Unit tests for the ConfigFilter class."""
 
     @pytest.mark.parametrize("expression", [42, ""])
-    def test_config_filter_invalid_expression_type(self, expression: str) -> None:
+    def test_invalid_expression_type(self, expression: str) -> None:
         """ValidationError is raised for invalid expression types."""
         with pytest.raises(ValidationError):
             ConfigFilter(expression=expression)
 
-    def test_config_filter_invalid_validate_docker_tag_type(self) -> None:
+    def test_invalid_validate_docker_tag_type(self) -> None:
         """ValidationError is raised for invalid validate_docker_tag types."""
         with pytest.raises(ValidationError):
             ConfigFilter(expression=".version", validate_docker_tag="not_bool")  # type: ignore[invalid-argument-type]
 
-    def test_config_filter_invalid_validate_regex_type(self) -> None:
+    def test_invalid_validate_regex_type(self) -> None:
         """ValidationError is raised for invalid validate_regex types."""
         with pytest.raises(ValidationError):
             ConfigFilter(expression=".version", validate_regex=42)  # type: ignore[bad-argument-type]
 
-    def test_config_filter_invalid_result_type(self) -> None:
+    def test_invalid_result_type(self) -> None:
         """ValidationError is raised for invalid result types."""
         with pytest.raises(ValidationError):
             sut = ConfigFilter(expression=".version")
             sut.result = 42  # type: ignore[bad-assignment]
 
-    def test_config_filter_keep_result_none(self) -> None:
+    def test_keep_result_none(self) -> None:
         """Result set to None remains None."""
         sut = ConfigFilter(expression=".version")
         sut.result = None
@@ -167,44 +154,44 @@ class TestConfigFilter:
         assert sut.result is None
 
     @pytest.mark.parametrize("result", ["", "null", "NULL", "Null"])
-    def test_config_filter_result_set_to_empty_string_or_null_string(self, result: str) -> None:
+    def test_result_set_to_empty_string_or_null_string(self, result: str) -> None:
         """Result set to empty string or null string becomes None."""
         sut = ConfigFilter(expression=".version")
         sut.result = result
 
         assert sut.result is None
 
-    def test_config_filter_invalid_result_with_expression_only(self) -> None:
+    def test_invalid_result_with_expression_only(self) -> None:
         """ValidationError raised for invalid result."""
         with pytest.raises(ValidationError):
             sut = ConfigFilter(expression=".version")
             sut.result = "1.0.0-invalid"
 
-    def test_config_filter_invalid_result_with_validate_docker_tag(self) -> None:
+    def test_invalid_result_with_validate_docker_tag(self) -> None:
         """ValidationError raised for invalid Docker tag result."""
         with pytest.raises(ValidationError):
             sut = ConfigFilter(expression=".version", validate_docker_tag=True)
             sut.result = "invalid.tag!"
 
-    def test_config_filter_invalid_result_with_validate_regex(self) -> None:
+    def test_invalid_result_with_validate_regex(self) -> None:
         """ValidationError raised for result not matching regex pattern."""
         with pytest.raises(ValidationError):
             sut = ConfigFilter(expression=".version", validate_regex=r"^v\d+\.\d+\.\d+$")
             sut.result = "1.2.3"
 
-    def test_config_filter_invalid_result_with_special_characters(self) -> None:
+    def test_invalid_result_with_special_characters(self) -> None:
         """ValidationError raised for result with special characters."""
         with pytest.raises(ValidationError):
             sut = ConfigFilter(expression=".version")
             sut.result = "1.0.0@"
 
-    def test_config_filter_invalid_result_with_hyphen_prefix(self) -> None:
+    def test_invalid_result_with_hyphen_prefix(self) -> None:
         """ValidationError raised for result with hyphen prefix."""
         with pytest.raises(ValidationError):
             sut = ConfigFilter(expression=".version")
             sut.result = "-1.0.0"
 
-    def test_config_filter_valid_result_with_expression_only(self) -> None:
+    def test_valid_result_with_expression_only(self) -> None:
         """Result setter validates with expression only."""
         sut = ConfigFilter(expression=".version")
         sut.result = "2.0.0"
@@ -212,7 +199,7 @@ class TestConfigFilter:
         assert sut.expression == ".version"
         assert sut.result == "2.0.0"
 
-    def test_config_filter_valid_result_with_validate_docker_tag(self) -> None:
+    def test_valid_result_with_validate_docker_tag(self) -> None:
         """Result setter validates with valid Docker tag."""
         sut = ConfigFilter(expression=".version", validate_docker_tag=True)
         sut.result = "1.0-alpha_1"
@@ -220,7 +207,7 @@ class TestConfigFilter:
         assert sut.validate_docker_tag is True
         assert sut.result == "1.0-alpha_1"
 
-    def test_config_filter_valid_result_with_validate_regex(self) -> None:
+    def test_valid_result_with_validate_regex(self) -> None:
         """Result setter validates with result matching regex pattern."""
         sut = ConfigFilter(expression=".version", validate_regex=r"^v\d+\.\d+\.\d+$")
         sut.result = "v1.2.3"
@@ -228,49 +215,49 @@ class TestConfigFilter:
         assert sut.validate_regex == r"^v\d+\.\d+\.\d+$"
         assert sut.result == "v1.2.3"
 
-    def test_config_filter_valid_result_with_v_prefix(self) -> None:
+    def test_valid_result_with_v_prefix(self) -> None:
         """Result setter validates with 'v' prefix in version."""
         sut = ConfigFilter(expression=".app.version")
         sut.result = "v1.0.0"
 
         assert sut.result == "v1.0.0"
 
-    def test_config_filter_valid_result_with_prerelease(self) -> None:
+    def test_valid_result_with_prerelease(self) -> None:
         """Result setter validates with prerelease version."""
         sut = ConfigFilter(expression=".app.version")
         sut.result = "1.0.0-beta.1"
 
         assert sut.result == "1.0.0-beta.1"
 
-    def test_config_filter_valid_result_with_build_metadata(self) -> None:
+    def test_valid_result_with_build_metadata(self) -> None:
         """Result setter validates with build metadata in version."""
         sut = ConfigFilter(expression=".app.version")
         sut.result = "1.0.0+build.123"
 
         assert sut.result == "1.0.0+build.123"
 
-    def test_config_filter_valid_result_with_prerelease_and_build_metadata(self) -> None:
+    def test_valid_result_with_prerelease_and_build_metadata(self) -> None:
         """Result setter validates with prerelease and build metadata."""
         sut = ConfigFilter(expression=".app.version")
         sut.result = "1.0.0-rc.1+build.456"
 
         assert sut.result == "1.0.0-rc.1+build.456"
 
-    def test_config_filter_valid_result_with_decimal_build_number(self) -> None:
+    def test_valid_result_with_decimal_build_number(self) -> None:
         """Result setter validates with decimal build number."""
         sut = ConfigFilter(expression=".app.version")
         sut.result = "2.1.0.42"
 
         assert sut.result == "2.1.0.42"
 
-    def test_config_filter_valid_creation_with_result(self) -> None:
+    def test_valid_creation_with_result(self) -> None:
         """Successful creation of ConfigFilter instance with result."""
         sut = ConfigFilter(expression=".app.version", result="1.2.3")
 
         assert sut.expression == ".app.version"
         assert sut.result == "1.2.3"
 
-    def test_config_filter_docker_tag_precedence_over_regex(self) -> None:
+    def test_docker_tag_precedence_over_regex(self) -> None:
         """Docker tag validation takes precedence over regex validation."""
         sut = ConfigFilter(
             expression=".version",
@@ -308,7 +295,7 @@ class TestConfigFileFormat:
         assert ConfigFileFormat.has_value("JSON") is False  # case sensitive
         assert ConfigFileFormat.has_value(" json ") is False  # no whitespace
 
-    def test_to_yq_format_dotenv(self) -> None:
+    def test_to_yq_format_with_dotenv(self) -> None:
         """To_yq_format converts DOTENV to 'props'."""
         result = ConfigFileFormat.to_yq_format(ConfigFileFormat.DOTENV)
         assert result == "props"

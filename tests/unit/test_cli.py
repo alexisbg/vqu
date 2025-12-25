@@ -9,7 +9,7 @@ from vqu.models import CliArgs, Project
 class TestMain:
     """Unit tests for the main function."""
 
-    def test_main_exits_when_exception(self, mocker: MockerFixture, capsys: CaptureFixture) -> None:
+    def test_exit_when_exception(self, mocker: MockerFixture, capsys: CaptureFixture) -> None:
         """Main should print an error and exit with code 1 when an exception is raised."""
         mocker.patch.object(cli, "check_yq")  # Assume yq is present
         mocker.patch.object(cli, "get_cli_args")  # Assume args are fine
@@ -30,7 +30,7 @@ class TestMain:
 class TestCheckYq:
     """Unit tests for the check_yq function."""
 
-    def test_check_yq_raises_file_not_found_when_yq_missing(self, mocker: MockerFixture) -> None:
+    def test_raise_file_not_found_when_yq_missing(self, mocker: MockerFixture) -> None:
         """check_yq should raise FileNotFoundError when 'yq' is not found."""
         mocker.patch("shutil.which", return_value=None)
 
@@ -40,7 +40,7 @@ class TestCheckYq:
         assert "'yq' command not found" in str(exc.value)
         assert "Please install 'yq' to proceed" in str(exc.value)
 
-    def test_check_yq_success_when_yq_exists(self, mocker: MockerFixture) -> None:
+    def test_success_when_yq_exists(self, mocker: MockerFixture) -> None:
         """check_yq should not raise when 'yq' is found in PATH."""
         mock_which = mocker.patch("shutil.which", return_value="/usr/bin/yq")
 
@@ -52,7 +52,7 @@ class TestCheckYq:
 class TestGetCliArgs:
     """Unit tests for the get_cli_args function."""
 
-    def test_get_cli_args_no_arguments(self, mocker: MockerFixture) -> None:
+    def test_no_arguments(self, mocker: MockerFixture) -> None:
         """get_cli_args with no arguments should return defaults."""
         mocker.patch("sys.argv", ["vqu"])
 
@@ -63,7 +63,7 @@ class TestGetCliArgs:
         assert args.config_file_path == ".vqu.yaml"
         assert args.update is False
 
-    def test_get_cli_args_with_project(self, mocker: MockerFixture) -> None:
+    def test_with_project(self, mocker: MockerFixture) -> None:
         """get_cli_args with project name should set project attribute."""
         mocker.patch("sys.argv", ["vqu", "myproject"])
 
@@ -73,7 +73,7 @@ class TestGetCliArgs:
         assert args.config_file_path == ".vqu.yaml"
         assert args.update is False
 
-    def test_get_cli_args_with_config_long_option(self, mocker: MockerFixture) -> None:
+    def test_with_config_long_option(self, mocker: MockerFixture) -> None:
         """get_cli_args with --config option should set config_file_path."""
         mocker.patch("sys.argv", ["vqu", "--config", "/custom/.vqu.yaml"])
 
@@ -83,7 +83,7 @@ class TestGetCliArgs:
         assert args.config_file_path == "/custom/.vqu.yaml"
         assert args.update is False
 
-    def test_get_cli_args_with_update_flag(self, mocker: MockerFixture) -> None:
+    def test_with_update_flag(self, mocker: MockerFixture) -> None:
         """get_cli_args with --update flag should set update to True."""
         mocker.patch("sys.argv", ["vqu", "myproject", "-u"])
 
@@ -103,7 +103,7 @@ class TestHandleArgs:
         self.project2 = Project(version="2.0.0", config_files=[])
         self.projects = {"project1": self.project1, "project2": self.project2}
 
-    def test_handle_args_raises_when_update_without_project(self) -> None:
+    def test_raise_value_error_when_update_without_project(self) -> None:
         """handle_args should raise ValueError when --update is used without a project."""
         args = CliArgs(project=None, config_file_path=".vqu.yaml", update=True)
 
@@ -112,7 +112,7 @@ class TestHandleArgs:
 
         assert "The --update option requires a specific project to be specified" in str(exc.value)
 
-    def test_handle_args_raises_when_project_not_found(self) -> None:
+    def test_raise_value_error_when_project_not_found(self) -> None:
         """handle_args should raise ValueError when specified project not found."""
         args = CliArgs(project="nonexistent", config_file_path=".vqu.yaml", update=False)
 
@@ -121,9 +121,7 @@ class TestHandleArgs:
 
         assert "Project 'nonexistent' not found in configuration" in str(exc.value)
 
-    def test_handle_args_calls_eval_project_when_project_specified(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_call_eval_project_when_project_specified(self, mocker: MockerFixture) -> None:
         """handle_args should call eval_project when a project is specified."""
         mock_eval = mocker.patch.object(cli, "eval_project")
         mock_update = mocker.patch.object(cli, "update_project")
@@ -136,9 +134,7 @@ class TestHandleArgs:
         assert mocker.call("project2", self.project2) in mock_eval.call_args_list
         mock_update.assert_not_called()
 
-    def test_handle_args_calls_both_update_and_eval_when_update_flag_set(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_call_both_update_and_eval_when_update_flag_set(self, mocker: MockerFixture) -> None:
         """handle_args should call both update_project and eval_project with --update."""
         mock_update = mocker.patch.object(cli, "update_project")
         mock_eval = mocker.patch.object(cli, "eval_project")
@@ -150,7 +146,7 @@ class TestHandleArgs:
         mock_update.assert_called_once_with("project2", self.project2)
         mock_eval.assert_called_once_with("project2", self.project2)
 
-    def test_handle_args_calls_eval_project_for_all_projects_when_no_project_specified(
+    def test_call_eval_project_for_all_projects_when_no_project_specified(
         self, mocker: MockerFixture
     ) -> None:
         """handle_args should call eval_project for all projects when no project is specified."""

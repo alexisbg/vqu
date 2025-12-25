@@ -26,7 +26,7 @@ class TestEvalProject:
         )
         self.project = Project(version="1.0.0", config_files=[self.config_file])
 
-    def test_eval_project_suppresses_output_when_print_result_false(
+    def test_remove_output_when_print_result_false(
         self, mocker: MockerFixture, capsys: CaptureFixture
     ) -> None:
         """eval_project should suppress output when print_result=False."""
@@ -45,9 +45,7 @@ class TestEvalProject:
         out = capsys.readouterr().out
         assert out == ""
 
-    def test_eval_project_with_empty_config_files(
-        self, mocker: MockerFixture, capsys: CaptureFixture
-    ) -> None:
+    def test_with_empty_config_files(self, capsys: CaptureFixture) -> None:
         """eval_project should print project name and version."""
         self.project.config_files = []
 
@@ -57,9 +55,7 @@ class TestEvalProject:
         assert "myproject" in out
         assert "1.0.0" in out
 
-    def test_eval_project_skips_missing_config_file(
-        self, mocker: MockerFixture, capsys: CaptureFixture
-    ) -> None:
+    def test_skip_missing_config_file(self, mocker: MockerFixture, capsys: CaptureFixture) -> None:
         """eval_project should print [File not found] for missing files."""
         mocker.patch("os.path.exists", return_value=False)
 
@@ -76,7 +72,7 @@ class TestEvalProject:
         assert "[File not found]" in out
         assert "/nonexistent/file.json" in out
 
-    def test_eval_project_with_empty_filters_in_config_file(self, mocker: MockerFixture) -> None:
+    def test_with_empty_filters_in_config_file(self, mocker: MockerFixture) -> None:
         """eval_project should handle config file with no filters."""
         mocker.patch("os.path.exists", return_value=True)
         mock_subprocess = mocker.patch(
@@ -90,7 +86,7 @@ class TestEvalProject:
 
         mock_subprocess.assert_not_called()
 
-    def test_eval_project_builds_correct_yq_command(self, mocker: MockerFixture) -> None:
+    def test_build_correct_yq_command(self, mocker: MockerFixture) -> None:
         """eval_project should build the correct yq command."""
         mocker.patch("vqu.project.ConfigFileFormat.to_yq_format", return_value="json")
         mocker.patch("vqu.project._print_version")
@@ -113,7 +109,7 @@ class TestEvalProject:
         assert ".version" in call_args
         assert "package.json" in call_args
 
-    def test_eval_project_processes_config_file(self, mocker: MockerFixture) -> None:
+    def test_process_config_file(self, mocker: MockerFixture) -> None:
         """eval_project should process config file when it exists."""
         mock_to_yq = mocker.patch("vqu.project.ConfigFileFormat.to_yq_format", return_value="json")
         mock_print_version = mocker.patch("vqu.project._print_version")
@@ -132,7 +128,7 @@ class TestEvalProject:
         assert self.project.config_files[0].filters[0].result == "1.0.0"
         mock_print_version.assert_called_once_with("1.0.0", False, "1.0.0", ".version")
 
-    def test_eval_project_dont_store_invalid_value(self, mocker: MockerFixture) -> None:
+    def test_dont_store_invalid_value(self, mocker: MockerFixture) -> None:
         """eval_project should not store invalid result in config_filter.result."""
         mocker.patch("vqu.project.ConfigFileFormat.to_yq_format", return_value="json")
         mocker.patch("vqu.project._print_version")
@@ -146,9 +142,7 @@ class TestEvalProject:
 
         assert self.project.config_files[0].filters[0].result is None
 
-    def test_eval_project_prints_command_on_error(
-        self, mocker: MockerFixture, capsys: CaptureFixture
-    ) -> None:
+    def test_print_command_on_error(self, mocker: MockerFixture, capsys: CaptureFixture) -> None:
         """eval_project should print the yq command when returncode is non-zero."""
         mocker.patch("vqu.project.ConfigFileFormat.to_yq_format", return_value="json")
         mocker.patch("vqu.project._print_version")
@@ -165,7 +159,7 @@ class TestEvalProject:
         out = capsys.readouterr().out
         assert "yq" in out
 
-    def test_eval_project_processes_multiple_config_files(self, mocker: MockerFixture) -> None:
+    def test_process_multiple_config_files(self, mocker: MockerFixture) -> None:
         """eval_project should process all config files."""
         mocker.patch("vqu.project.ConfigFileFormat.to_yq_format", return_value="json")
         mocker.patch("vqu.project._print_version")
@@ -187,7 +181,7 @@ class TestEvalProject:
 
         assert mock_subprocess.call_count == 2
 
-    def test_eval_project_processes_multiple_filters_per_file(self, mocker: MockerFixture) -> None:
+    def test_process_multiple_filters_per_file(self, mocker: MockerFixture) -> None:
         """eval_project should process all filters in a config file."""
         mocker.patch("vqu.project.ConfigFileFormat.to_yq_format", return_value="json")
         mocker.patch("vqu.project._print_version")
@@ -214,32 +208,28 @@ class TestPrintVersion:
     YELLOW = "\x1b[33m"
     RESET = "\x1b[0m"
 
-    def test_print_version_invalid_value(self, capsys: CaptureFixture) -> None:
+    def test_invalid_value(self, capsys: CaptureFixture) -> None:
         """_print_version should print '[Invalid version]' in red when version is _InvalidValue."""
         _print_version("invalid", True, "1.0.0", ".version")
 
         out = capsys.readouterr().out
         assert f".version = {self.RED}[Invalid version] invalid{self.RESET}" in out
 
-    def test_print_version_none_value(self, capsys: CaptureFixture, mocker: MockerFixture) -> None:
+    def test_none_value(self, capsys: CaptureFixture) -> None:
         """_print_version should print '[Value not found]' in red when version is None."""
         _print_version(None, False, "1.0.0", ".version")
 
         out = capsys.readouterr().out
         assert f".version = {self.RED}[Value not found]{self.RESET}" in out
 
-    def test_print_version_differing_version(
-        self, capsys: CaptureFixture, mocker: MockerFixture
-    ) -> None:
+    def test_differing_version(self, capsys: CaptureFixture) -> None:
         """_print_version should print version in yellow when versions differ."""
         _print_version("0.9.0", False, "1.0.0", ".version")
 
         out = capsys.readouterr().out
         assert f".version = {self.YELLOW}0.9.0{self.RESET}" in out
 
-    def test_print_version_matching_version(
-        self, capsys: CaptureFixture, mocker: MockerFixture
-    ) -> None:
+    def test_matching_version(self, capsys: CaptureFixture) -> None:
         """_print_version should print version in green when versions match."""
         _print_version("1.0.0", False, "1.0.0", ".version")
 
@@ -262,9 +252,7 @@ class TestUpdateProject:
 
         self.json_content = '{\n  "version": "1.0.0"\n}\n'
 
-    def test_update_project_with_empty_config_files_calls_eval_project(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_with_empty_config_files_calls_eval_project(self, mocker: MockerFixture) -> None:
         """update_project should call eval_project with print_result=False."""
         self.project.config_files = []
 
@@ -279,9 +267,7 @@ class TestUpdateProject:
         mock_eval.assert_called_once_with("myproject", self.project, print_result=False)
         mock_open.assert_not_called()
 
-    def test_update_project_with_empty_filters_reads_config_file(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_with_empty_filters_reads_config_file(self, mocker: MockerFixture) -> None:
         """update_project should read the config file."""
         self.config_file.filters = []
 
@@ -293,7 +279,7 @@ class TestUpdateProject:
         # Check that open was called to read the file
         assert mocker.call("package.json", "r") in mock_open.call_args_list
 
-    def test_update_project_validates_update(self, mocker: MockerFixture) -> None:
+    def test_validate_update(self, mocker: MockerFixture) -> None:
         """update_project should validate the update before replacing."""
         mocker.patch("vqu.project.eval_project")
         mocker.patch("vqu.project.open", mocker.mock_open(read_data=self.json_content))
@@ -303,7 +289,7 @@ class TestUpdateProject:
 
         mock_validate.assert_called_once_with(self.json_content, "package.json", self.config_filter)
 
-    def test_update_project_writes_updated_content(self, mocker: MockerFixture) -> None:
+    def test_write_updated_content(self, mocker: MockerFixture) -> None:
         """update_project should write the updated content to the file."""
         mocker.patch("vqu.project.eval_project")
         mock_open_instance = mocker.mock_open(read_data=self.json_content)
@@ -321,9 +307,7 @@ class TestUpdateProject:
         assert len(write_calls) == 1
         assert write_calls[0] == mocker.call(updated_content)
 
-    def test_update_project_prints_success_message(
-        self, mocker: MockerFixture, capsys: CaptureFixture
-    ) -> None:
+    def test_print_success_message(self, mocker: MockerFixture, capsys: CaptureFixture) -> None:
         """update_project should print a success message after updating."""
         mocker.patch("vqu.project.eval_project")
         mocker.patch("vqu.project.open", mocker.mock_open(read_data=self.json_content))
@@ -337,7 +321,7 @@ class TestUpdateProject:
         assert "updated" in out.lower()
         assert out.endswith("\n")
 
-    def test_update_project_processes_multiple_config_files(self, mocker: MockerFixture) -> None:
+    def test_process_multiple_config_files(self, mocker: MockerFixture) -> None:
         """update_project should process all config files."""
         config_file2 = ConfigFile(
             path="pyproject.toml",
@@ -357,9 +341,7 @@ class TestUpdateProject:
         assert mocker.call("package.json", "r") in mock_open.call_args_list
         assert mocker.call("pyproject.toml", "r") in mock_open.call_args_list
 
-    def test_update_project_processes_multiple_filters_per_file(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_process_multiple_filters_per_file(self, mocker: MockerFixture) -> None:
         """update_project should process all filters in a config file."""
         config_filter2 = ConfigFilter(expression=".packageVersion", result="1.0.0")
         self.config_file.filters.append(config_filter2)
@@ -382,12 +364,12 @@ class TestValidateUpdate:
         self.json_content = '{"version": "1.0.0"}'
         self.config_filter = ConfigFilter(expression=".version", result="1.0.0")
 
-    def test_validate_update_success_single_occurrence(self) -> None:
+    def test_success_with_single_occurrence(self) -> None:
         """_validate_update should pass when value appears exactly once."""
         # Should not raise
         _validate_update(self.json_content, "package.json", self.config_filter)
 
-    def test_validate_update_raises_when_result_is_none(self) -> None:
+    def test_raise_value_error_when_result_is_none(self) -> None:
         """_validate_update should raise ValueError when result is None."""
         self.config_filter.result = None
 
@@ -398,7 +380,7 @@ class TestValidateUpdate:
         assert self.config_filter.expression in str(exc.value)
         assert "package.json" in str(exc.value)
 
-    def test_validate_update_raises_when_value_not_found(self) -> None:
+    def test_raise_value_error_when_value_not_found(self) -> None:
         """_validate_update should raise ValueError when value not found in content."""
         content = '{"version": "2.0.0"}'
 
@@ -409,7 +391,7 @@ class TestValidateUpdate:
         assert cast(str, self.config_filter.result) in str(exc.value)
         assert "package.json" in str(exc.value)
 
-    def test_validate_update_raises_when_multiple_occurrences(self) -> None:
+    def test_raise_value_error_when_multiple_occurrences(self) -> None:
         """_validate_update should raise ValueError when value appears multiple times."""
         content = '{"version": "1.0.0", "oldVersion": "1.0.0"}'
 
@@ -420,7 +402,7 @@ class TestValidateUpdate:
         assert cast(str, self.config_filter.result) in str(exc.value)
         assert "package.json" in str(exc.value)
 
-    def test_validate_update_special_characters_in_result(self) -> None:
+    def test_with_special_characters_in_result(self) -> None:
         """_validate_update should handle special characters in result."""
         content = '{"version": "1.0.0-alpha+build.1"}'
         self.config_filter.result = "1.0.0-alpha+build.1"
@@ -428,7 +410,7 @@ class TestValidateUpdate:
         # Should not raise
         _validate_update(content, "package.json", self.config_filter)
 
-    def test_validate_update_single_numeric_occurrence(self) -> None:
+    def test_with_single_numeric_occurrence(self) -> None:
         """_validate_update should pass for single numeric occurrence."""
         content = '{"id": 123}'
         self.config_filter.result = "123"
@@ -436,21 +418,21 @@ class TestValidateUpdate:
         # Should not raise
         _validate_update(content, "config.json", self.config_filter)
 
-    def test_validate_update_yaml_content(self) -> None:
+    def test_with_yaml_content(self) -> None:
         """_validate_update should work with YAML content."""
         content = "version: 1.0.0\nname: myapp"
 
         # Should not raise
         _validate_update(content, "pyproject.toml", self.config_filter)
 
-    def test_validate_update_toml_content(self) -> None:
+    def test_with_toml_content(self) -> None:
         """_validate_update should work with TOML content."""
         content = '[project]\nversion = "1.0.0"'
 
         # Should not raise
         _validate_update(content, "pyproject.toml", self.config_filter)
 
-    def test_validate_update_unicode_content(self) -> None:
+    def test_with_unicode_content(self) -> None:
         """_validate_update should handle unicode characters in content."""
         content = '{"version": "1.0.0", "description": "Café"}'
 
