@@ -1,9 +1,11 @@
 from argparse import ArgumentParser
 from importlib.metadata import metadata, version
 import shutil
+import sys
 
 from termcolor import colored
 
+from vqu.logger import output_logger
 from vqu.models import CliArgs, Project
 from vqu.project import eval_project, update_project
 from vqu.yaml_file import load_projects_from_yaml
@@ -24,8 +26,8 @@ def main() -> None:
         handle_args(args, projects)
     except Exception as e:
         err = colored("[Error]", "red", attrs=["bold"])
-        print(f"{err} {e}")
-        exit(1)
+        output_logger.critical(f"{err} {e}")
+        sys.exit(1)
 
 
 def check_yq() -> None:
@@ -49,7 +51,7 @@ def get_cli_args() -> CliArgs:
     parser = ArgumentParser(
         "vqu",
         description=metadata("vqu")["Summary"],
-        usage="%(prog)s [project] [options]",
+        # usage="%(prog)s [project] [options]",
         add_help=False,
     )
 
@@ -84,6 +86,11 @@ def get_cli_args() -> CliArgs:
     # fmt: on
 
     args = parser.parse_args()
+
+    # Validate --update requires project
+    if args.update and not args.project:
+        parser.error("The --update option requires a project to be specified.")
+
     return CliArgs(
         project=args.project,
         config_file_path=args.config,
@@ -99,10 +106,6 @@ def handle_args(args: CliArgs, projects: dict[str, Project]) -> None:
         projects (dict[str, Project]): A dictionary mapping project names to their corresponding
             Project instances, loaded from the configuration file.
     """
-    # Validate --update argument dependency
-    if args.update and not args.project:
-        raise ValueError("The --update option requires a specific project to be specified.")
-
     # Handle positional project argument
     if args.project:
         project_obj = projects.get(args.project)
@@ -118,8 +121,7 @@ def handle_args(args: CliArgs, projects: dict[str, Project]) -> None:
 
     # No arguments: print all projects
     else:
-        last_key = list(projects.keys())[-1]
-        for k, v in projects.items():
+        for i, (k, v) in enumerate(projects.items()):
+            if i > 0:
+                output_logger.info("")
             eval_project(k, v)
-            if k != last_key:
-                print("")

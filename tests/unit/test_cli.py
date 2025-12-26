@@ -3,6 +3,7 @@ from pytest import CaptureFixture
 from pytest_mock import MockerFixture
 
 from vqu import cli
+from vqu.logger import _setup_output_logger
 from vqu.models import CliArgs, Project
 
 
@@ -15,6 +16,7 @@ class TestMain:
         mocker.patch.object(cli, "get_cli_args")  # Assume args are fine
         mocker.patch.object(cli, "load_projects_from_yaml")  # Assume loading works
         mocker.patch.object(cli, "handle_args", side_effect=Exception("Unexpected error"))
+        _setup_output_logger()
 
         with pytest.raises(SystemExit) as se:
             cli.main()
@@ -83,6 +85,19 @@ class TestGetCliArgs:
         assert args.config_file_path == "/custom/.vqu.yaml"
         assert args.update is False
 
+    def test_raise_value_error_when_update_without_project(
+        self, mocker: MockerFixture, capsys: CaptureFixture
+    ) -> None:
+        """get_cli_args raises ValueError when --update is used without a project."""
+        mocker.patch("sys.argv", ["vqu", "-u"])
+
+        with pytest.raises(SystemExit) as exc:
+            cli.get_cli_args()
+
+        assert exc.value.code == 2  # argparse exits with code 2 for argument errors
+        err: str = capsys.readouterr().err
+        assert "error: The --update option requires a project to be specified." in err
+
     def test_with_update_flag(self, mocker: MockerFixture) -> None:
         """get_cli_args with --update flag should set update to True."""
         mocker.patch("sys.argv", ["vqu", "myproject", "-u"])
@@ -102,15 +117,6 @@ class TestHandleArgs:
         self.project1 = Project(version="1.0.0", config_files=[])
         self.project2 = Project(version="2.0.0", config_files=[])
         self.projects = {"project1": self.project1, "project2": self.project2}
-
-    def test_raise_value_error_when_update_without_project(self) -> None:
-        """handle_args should raise ValueError when --update is used without a project."""
-        args = CliArgs(project=None, config_file_path=".vqu.yaml", update=True)
-
-        with pytest.raises(ValueError) as exc:
-            cli.handle_args(args, self.projects)
-
-        assert "The --update option requires a specific project to be specified" in str(exc.value)
 
     def test_raise_value_error_when_project_not_found(self) -> None:
         """handle_args should raise ValueError when specified project not found."""

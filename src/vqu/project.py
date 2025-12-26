@@ -1,14 +1,13 @@
-from contextlib import redirect_stdout
-import io
+import logging
 import os
 import shlex
 import subprocess
-import sys
 from typing import cast
 
 from pydantic import ValidationError
-from termcolor import colored, cprint
+from termcolor import colored
 
+from vqu.logger import output_logger
 from vqu.models import ConfigFileFormat, ConfigFilter, Project
 
 
@@ -20,18 +19,23 @@ def eval_project(name: str, project: Project, print_result: bool = True) -> None
         project (Project): The project instance.
         print_result (bool): If False, suppresses the output.
     """
-    # Redirect output to null if print_result is False
-    with redirect_stdout(sys.stdout if print_result else io.StringIO()):  # type: ignore[bad-argument-type]
+    # Suppress output if print_result is False
+    if not print_result:
+        # output_logger.disabled = True
+        output_logger.setLevel(logging.CRITICAL)
+
+    try:
         expected_version = colored(project.version, "green")
-        print(f"{name} {expected_version}")
+        output_logger.info(f"{name} {expected_version}")
 
         for config_file in project.config_files:
             # Skip if the file path does not exist
             if not os.path.exists(config_file.path):
-                print(f"  {config_file.path}: [File not found]")
+                file_not_found = colored("[File not found]", "red")
+                output_logger.warning(f"  {config_file.path}: {file_not_found}")
                 continue
 
-            print(f"  {config_file.path}:")
+            output_logger.info(f"  {config_file.path}:")
 
             file_format = ConfigFileFormat.to_yq_format(config_file.format)
 
@@ -59,7 +63,10 @@ def eval_project(name: str, project: Project, print_result: bool = True) -> None
 
                 # Print the command if there was an error
                 if result.returncode:
-                    print(f"    {shlex.join(cmd)}")
+                    output_logger.warning(f"    {shlex.join(cmd)}")
+    finally:
+        # Restore logger level
+        output_logger.setLevel(logging.INFO)
 
 
 def _print_version(
@@ -84,7 +91,7 @@ def _print_version(
     else:
         version_msg = colored(version, "green")
 
-    print(f"    {filter_expr} = {version_msg}")
+    output_logger.info(f"    {filter_expr} = {version_msg}")
 
 
 def update_project(name: str, project: Project) -> None:
@@ -102,22 +109,25 @@ def update_project(name: str, project: Project) -> None:
         with open(config_file.path, "r") as file:
             content = file.read()
 
-            for config_filter in config_file.filters:
+        original_content = content
+        for config_filter in config_file.filters:
+            if config_filter.result != project.version:
                 _validate_update(content, config_file.path, config_filter)
 
                 # Replace the old version with the new version
                 content = content.replace(cast(str, config_filter.result), project.version, 1)
 
         # Write the updated content back to the file
-        with open(config_file.path, "w") as file:
-            file.write(content)
-            cprint(
-                f"{config_file.path!r} has been updated to version {project.version}.",
-                "green",
-            )
+        if content != original_content:
+            with open(config_file.path, "w") as file:
+                file.write(content)
+                success = colored(
+                    f"{config_file.path!r} has been updated to version {project.version}.", "green"
+                )
+                output_logger.info(success)
 
     # End with a newline
-    print("")
+    output_logger.info("")
 
 
 def _validate_update(content: str, path: str, config_filter: ConfigFilter) -> None:

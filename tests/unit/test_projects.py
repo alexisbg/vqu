@@ -1,9 +1,10 @@
 from typing import cast
 
 import pytest
-from pytest import CaptureFixture
+from pytest import CaptureFixture, LogCaptureFixture
 from pytest_mock import MockerFixture
 
+from vqu.logger import _setup_output_logger
 from vqu.models import ConfigFile, ConfigFileFormat, ConfigFilter, Project
 from vqu.project import (
     _print_version,
@@ -11,6 +12,13 @@ from vqu.project import (
     eval_project,
     update_project,
 )
+
+
+# ANSI color codes
+RED = "\x1b[31m"
+GREEN = "\x1b[32m"
+YELLOW = "\x1b[33m"
+RESET = "\x1b[0m"
 
 
 class TestEvalProject:
@@ -45,19 +53,22 @@ class TestEvalProject:
         out = capsys.readouterr().out
         assert out == ""
 
-    def test_with_empty_config_files(self, capsys: CaptureFixture) -> None:
+    def test_with_empty_config_files(self, caplog: LogCaptureFixture) -> None:
         """eval_project should print project name and version."""
         self.project.config_files = []
+        _setup_output_logger()
 
         eval_project("myproject", self.project)
 
-        out = capsys.readouterr().out
+        # out = capsys.readouterr().out
+        out = caplog.text
         assert "myproject" in out
         assert "1.0.0" in out
 
     def test_skip_missing_config_file(self, mocker: MockerFixture, capsys: CaptureFixture) -> None:
-        """eval_project should print [File not found] for missing files."""
+        """eval_project should print a red [File not found] for missing files."""
         mocker.patch("os.path.exists", return_value=False)
+        _setup_output_logger()
 
         config_file = ConfigFile(
             path="/nonexistent/file.json",
@@ -69,7 +80,7 @@ class TestEvalProject:
         eval_project("myproject", self.project)
 
         out = capsys.readouterr().out
-        assert "[File not found]" in out
+        assert f"{RED}[File not found]{RESET}" in out
         assert "/nonexistent/file.json" in out
 
     def test_with_empty_filters_in_config_file(self, mocker: MockerFixture) -> None:
@@ -142,7 +153,7 @@ class TestEvalProject:
 
         assert self.project.config_files[0].filters[0].result is None
 
-    def test_print_command_on_error(self, mocker: MockerFixture, capsys: CaptureFixture) -> None:
+    def test_print_command_on_error(self, mocker: MockerFixture, caplog: LogCaptureFixture) -> None:
         """eval_project should print the yq command when returncode is non-zero."""
         mocker.patch("vqu.project.ConfigFileFormat.to_yq_format", return_value="json")
         mocker.patch("vqu.project._print_version")
@@ -151,12 +162,13 @@ class TestEvalProject:
             "subprocess.run",
             return_value=mocker.MagicMock(stdout="", returncode=1),
         )
+        _setup_output_logger()
 
         self.config_filter.result = None
 
         eval_project("myproject", self.project)
 
-        out = capsys.readouterr().out
+        out = caplog.text
         assert "yq" in out
 
     def test_process_multiple_config_files(self, mocker: MockerFixture) -> None:
@@ -202,39 +214,41 @@ class TestEvalProject:
 class TestPrintVersion:
     """Unit tests for the _print_version function."""
 
-    # ANSI color codes
-    RED = "\x1b[31m"
-    GREEN = "\x1b[32m"
-    YELLOW = "\x1b[33m"
-    RESET = "\x1b[0m"
-
     def test_invalid_value(self, capsys: CaptureFixture) -> None:
         """_print_version should print '[Invalid version]' in red when version is _InvalidValue."""
+        _setup_output_logger()
+
         _print_version("invalid", True, "1.0.0", ".version")
 
         out = capsys.readouterr().out
-        assert f".version = {self.RED}[Invalid version] invalid{self.RESET}" in out
+        assert f".version = {RED}[Invalid version] invalid{RESET}" in out
 
     def test_none_value(self, capsys: CaptureFixture) -> None:
         """_print_version should print '[Value not found]' in red when version is None."""
+        _setup_output_logger()
+
         _print_version(None, False, "1.0.0", ".version")
 
         out = capsys.readouterr().out
-        assert f".version = {self.RED}[Value not found]{self.RESET}" in out
+        assert f".version = {RED}[Value not found]{RESET}" in out
 
     def test_differing_version(self, capsys: CaptureFixture) -> None:
         """_print_version should print version in yellow when versions differ."""
+        _setup_output_logger()
+
         _print_version("0.9.0", False, "1.0.0", ".version")
 
         out = capsys.readouterr().out
-        assert f".version = {self.YELLOW}0.9.0{self.RESET}" in out
+        assert f".version = {YELLOW}0.9.0{RESET}" in out
 
     def test_matching_version(self, capsys: CaptureFixture) -> None:
         """_print_version should print version in green when versions match."""
+        _setup_output_logger()
+
         _print_version("1.0.0", False, "1.0.0", ".version")
 
         out = capsys.readouterr().out
-        assert f".version = {self.GREEN}1.0.0{self.RESET}" in out
+        assert f".version = {GREEN}1.0.0{RESET}" in out
 
 
 class TestUpdateProject:
@@ -279,6 +293,33 @@ class TestUpdateProject:
         # Check that open was called to read the file
         assert mocker.call("package.json", "r") in mock_open.call_args_list
 
+    def test_with_multiple_filters_per_file(self, mocker: MockerFixture) -> None:
+        """update_project should process all filters in a config file."""
+        config_filter2 = ConfigFilter(expression=".packageVersion", result="1.0.0")
+        self.config_file.filters.append(config_filter2)
+
+        mocker.patch("vqu.project.eval_project")
+        mocker.patch("vqu.project.open", mocker.mock_open(read_data=self.json_content))
+        mock_validate = mocker.patch("vqu.project._validate_update")
+
+        update_project("myproject", self.project)
+
+        # Verify that _validate_update was called for both filters
+        assert mock_validate.call_count == 2
+
+    def test_skip_update_when_version_matches(self, mocker: MockerFixture) -> None:
+        """update_project should skip validation and replacement if version already matches."""
+        self.project.version = "1.0.0"
+
+        mocker.patch("vqu.project.eval_project")
+        mock_open_instance = mocker.mock_open(read_data=self.json_content)
+        mocker.patch("vqu.project.open", mock_open_instance)
+        mock_validate = mocker.patch("vqu.project._validate_update")
+
+        update_project("myproject", self.project)
+
+        mock_validate.assert_not_called()
+
     def test_validate_update(self, mocker: MockerFixture) -> None:
         """update_project should validate the update before replacing."""
         mocker.patch("vqu.project.eval_project")
@@ -288,6 +329,23 @@ class TestUpdateProject:
         update_project("myproject", self.project)
 
         mock_validate.assert_called_once_with(self.json_content, "package.json", self.config_filter)
+
+    def test_no_write_when_no_changes(self, mocker: MockerFixture) -> None:
+        """update_project should not write the file when no replacements are needed."""
+        # Pretend eval_project already populated results and they match the project version
+        self.config_filter.result = "2.0.0"
+
+        mocker.patch("vqu.project.eval_project")
+        mock_open = mocker.mock_open(read_data=self.json_content)
+        mocker.patch("vqu.project.open", mock_open)
+        mocker.patch("vqu.project._validate_update")
+
+        update_project("myproject", self.project)
+
+        # Ensure file was opened for read but not written
+        assert mocker.call("package.json", "r") in mock_open.call_args_list
+        assert mocker.call("package.json", "w") not in mock_open.call_args_list
+        mock_open.return_value.write.assert_not_called()
 
     def test_write_updated_content(self, mocker: MockerFixture) -> None:
         """update_project should write the updated content to the file."""
@@ -307,15 +365,16 @@ class TestUpdateProject:
         assert len(write_calls) == 1
         assert write_calls[0] == mocker.call(updated_content)
 
-    def test_print_success_message(self, mocker: MockerFixture, capsys: CaptureFixture) -> None:
+    def test_print_success_message(self, mocker: MockerFixture, caplog: LogCaptureFixture) -> None:
         """update_project should print a success message after updating."""
         mocker.patch("vqu.project.eval_project")
         mocker.patch("vqu.project.open", mocker.mock_open(read_data=self.json_content))
         mocker.patch("vqu.project._validate_update")
+        _setup_output_logger()
 
         update_project("myproject", self.project)
 
-        out = capsys.readouterr().out
+        out = caplog.text
         assert "package.json" in out
         assert "2.0.0" in out
         assert "updated" in out.lower()
