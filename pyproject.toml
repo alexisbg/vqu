@@ -78,5 +78,11 @@ output = ".coverage/cobertura.xml"
 [tool.pyrefly]
 python-version = "3.10"
 
+[[tool.pyrefly.sub-config]]
+matches = "tests/**"
+
+[tool.pyrefly.sub-config.errors]
+unnecessary-comparison = false
+
 [tool.pytest_env]
 FORCE_COLOR = "1"

@@ -133,18 +133,31 @@ class TestConfigFilter:
     def test_invalid_validate_docker_tag_type(self) -> None:
         """ValidationError is raised for invalid validate_docker_tag types."""
         with pytest.raises(ValidationError):
-            ConfigFilter(expression=".version", validate_docker_tag="not_bool")  # type: ignore[invalid-argument-type]
+            ConfigFilter(expression=".version", validate_docker_tag="not_bool")  # type: ignore
 
     def test_invalid_validate_regex_type(self) -> None:
         """ValidationError is raised for invalid validate_regex types."""
         with pytest.raises(ValidationError):
-            ConfigFilter(expression=".version", validate_regex=42)  # type: ignore[bad-argument-type]
+            ConfigFilter(expression=".version", validate_regex=42)  # type: ignore
 
     def test_invalid_result_type(self) -> None:
         """ValidationError is raised for invalid result types."""
         with pytest.raises(ValidationError):
             sut = ConfigFilter(expression=".version")
-            sut.result = 42  # type: ignore[bad-assignment]
+            sut.result = 42  # type: ignore
+
+    def test_not_result_setter(self) -> None:
+        """Setting attributes other than result works as expected."""
+        sut = ConfigFilter(expression=".version")
+        sut.expression = ".new_version"
+        sut.validate_docker_tag = True
+        sut.validate_regex = r"v\d+\.\d+\.\d+"
+
+        assert sut.expression == ".new_version"
+        assert sut.validate_docker_tag is True
+        assert sut.validate_regex == r"v\d+\.\d+\.\d+"
+        assert sut.result is None
+        assert sut.invalid_result is None
 
     def test_keep_result_none(self) -> None:
         """Result set to None remains None."""
@@ -163,33 +176,43 @@ class TestConfigFilter:
 
     def test_invalid_result_with_expression_only(self) -> None:
         """ValidationError raised for invalid result."""
-        with pytest.raises(ValidationError):
-            sut = ConfigFilter(expression=".version")
-            sut.result = "1.0.0-invalid"
+        sut = ConfigFilter(expression=".version")
+        sut.result = "1.0.0-invalid"
+
+        assert sut.result is None
+        assert sut.invalid_result == "1.0.0-invalid"
 
     def test_invalid_result_with_validate_docker_tag(self) -> None:
         """ValidationError raised for invalid Docker tag result."""
-        with pytest.raises(ValidationError):
-            sut = ConfigFilter(expression=".version", validate_docker_tag=True)
-            sut.result = "invalid.tag!"
+        sut = ConfigFilter(expression=".version", validate_docker_tag=True)
+        sut.result = "invalid.tag!"
+
+        assert sut.result is None
+        assert sut.invalid_result == "invalid.tag!"
 
     def test_invalid_result_with_validate_regex(self) -> None:
         """ValidationError raised for result not matching regex pattern."""
-        with pytest.raises(ValidationError):
-            sut = ConfigFilter(expression=".version", validate_regex=r"^v\d+\.\d+\.\d+$")
-            sut.result = "1.2.3"
+        sut = ConfigFilter(expression=".version", validate_regex=r"v\d+\.\d+\.\d+")
+        sut.result = "1.2.3"
+
+        assert sut.result is None
+        assert sut.invalid_result == "1.2.3"
 
     def test_invalid_result_with_special_characters(self) -> None:
         """ValidationError raised for result with special characters."""
-        with pytest.raises(ValidationError):
-            sut = ConfigFilter(expression=".version")
-            sut.result = "1.0.0@"
+        sut = ConfigFilter(expression=".version")
+        sut.result = "1.0.0@"
+
+        assert sut.result is None
+        assert sut.invalid_result == "1.0.0@"
 
     def test_invalid_result_with_hyphen_prefix(self) -> None:
         """ValidationError raised for result with hyphen prefix."""
-        with pytest.raises(ValidationError):
-            sut = ConfigFilter(expression=".version")
-            sut.result = "-1.0.0"
+        sut = ConfigFilter(expression=".version")
+        sut.result = "-1.0.0"
+
+        assert sut.result is None
+        assert sut.invalid_result == "-1.0.0"
 
     def test_valid_result_with_expression_only(self) -> None:
         """Result setter validates with expression only."""

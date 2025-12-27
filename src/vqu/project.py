@@ -1,10 +1,9 @@
 import logging
-import os
+from pathlib import Path
 import shlex
 import subprocess
 from typing import cast
 
-from pydantic import ValidationError
 from termcolor import colored
 
 from vqu.logger import output_logger
@@ -30,7 +29,7 @@ def eval_project(name: str, project: Project, print_result: bool = True) -> None
 
         for config_file in project.config_files:
             # Skip if the file path does not exist
-            if not os.path.exists(config_file.path):
+            if not Path(config_file.path).exists():
                 file_not_found = colored("[File not found]", "red")
                 output_logger.warning(f"  {config_file.path}: {file_not_found}")
                 continue
@@ -47,19 +46,15 @@ def eval_project(name: str, project: Project, print_result: bool = True) -> None
                     config_filter.expression, config_file.path
                 ]
                 # fmt: on
-                result = subprocess.run(cmd, capture_output=True, text=True)
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
 
-                version = result.stdout.strip()
-                is_invalid: bool = False
-                try:
-                    # The setter validates the provided value and it can raise exceptions if the
-                    # value is invalid.
-                    config_filter.result = version
-                except ValidationError:
-                    is_invalid = True
+                version_output: str | None = None
+                if not result.returncode:
+                    version_output = result.stdout.strip() or None
 
-                # Print the version information
-                _print_version(version, is_invalid, project.version, config_filter.expression)
+                # The setter validates the provided value
+                config_filter.result = version_output
+                _print_version(config_filter, project.version)
 
                 # Print the command if there was an error
                 if result.returncode:
@@ -69,29 +64,25 @@ def eval_project(name: str, project: Project, print_result: bool = True) -> None
         output_logger.setLevel(logging.INFO)
 
 
-def _print_version(
-    version: str | None, is_version_invalid: bool, prj_version: str, filter_expr: str
-) -> None:
+def _print_version(config_filter: ConfigFilter, prj_version: str) -> None:
     """Prints the version information with appropriate coloring based on its validity.
 
     Args:
-        version (str | None): The parsed version value from the configuration file.
-        is_version_invalid (bool): Whether the parsed version is invalid.
+        config_filter (ConfigFilter): The configuration filter instance.
         prj_version (str): The expected project version.
-        filter_expr (str): The filter expression used to retrieve the version.
     """
-    if is_version_invalid:
-        version_msg = colored(f"[Invalid version] {version}", "red")
-    elif version is None:
+    if config_filter.invalid_result is not None:
+        version_msg = colored(f"[Invalid version] {config_filter.invalid_result}", "red")
+    elif config_filter.result is None:
         version_msg = colored("[Value not found]", "red")
     # The versions differ
-    elif version != prj_version:
-        version_msg = colored(version, "yellow")
+    elif config_filter.result != prj_version:
+        version_msg = colored(config_filter.result, "yellow")
     # The versions match
     else:
-        version_msg = colored(version, "green")
+        version_msg = colored(config_filter.result, "green")
 
-    output_logger.info(f"    {filter_expr} = {version_msg}")
+    output_logger.info(f"    {config_filter.expression} = {version_msg}")
 
 
 def update_project(name: str, project: Project) -> None:

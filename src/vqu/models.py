@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from enum import Enum
 import re
+from typing import Any
 
 from packaging.version import InvalidVersion, Version
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CliArgs(BaseModel):
@@ -67,6 +68,8 @@ class ConfigFilter(BaseModel):
 
     Attributes:
         expression (str): The yq command syntax string used to extract or update the version value.
+        invalid_result (str | None): The raw extracted value that failed validation. None if result
+            is valid.
         result (str | None): The extracted version value, or None if not yet retrieved.
         validate_docker_tag (bool | None): Whether to validate the result as a valid Docker tag.
         validate_regex (str | None): A regex pattern to validate the result against.
@@ -75,54 +78,60 @@ class ConfigFilter(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
     expression: str = Field(..., min_length=1)
+    invalid_result: str | None = None
     result: str | None = None
     validate_docker_tag: bool | None = None
     validate_regex: str | None = Field(default=None, min_length=1)
 
-    @field_validator("result", mode="after")
-    @classmethod
-    def validate_result(cls, value: str | None, info: ValidationInfo) -> str | None:
-        """Validates the result attribute based on the other attributes if set.
+    def __setattr__(self, name: str, value: Any) -> None:  # noqa: ANN401
+        """Override __setattr__ to validate the 'result' attribute.
+
+        When setting 'result', if the value is invalid, sets 'result' to None
+        and stores the invalid value in 'invalid_result'.
 
         Args:
-            value (str | None): The result value to validate.
-            info (ValidationInfo): Additional validation information.
-
-        Returns:
-            str | None: The validated result value.
-
-        Raises:
-            ValueError: If the result does not pass the specified validations.
+            name (str): The attribute name.
+            value (Any): The value to set.
         """
-        # Pydantic checks if value is a string or None before calling this validator
-        if value is None:
-            return value
+        # Pydantic validate the type and set the value first
+        super().__setattr__(name, value)
 
-        # Not an empty string or contains null string
-        if not value or value.lower() == "null":
-            return None
+        if name == "result":
+            # Clear invalid_result when result is set
+            super().__setattr__("invalid_result", None)
 
-        # Validate as Docker tag
-        elif info.data.get("validate_docker_tag"):
-            if not re.fullmatch(r"[\w][\w.-]{0,127}", value):
-                raise ValueError(f"Filter result {value!r} is not a valid Docker tag.")
+            # Skip if value is None
+            if value is None:
+                return
 
-        # Validate against regex if provided
-        elif info.data.get("validate_regex"):
-            if not re.fullmatch(info.data["validate_regex"], value):
-                raise ValueError(
-                    f"Filter result {value!r} does not match the regex pattern "
-                    + f"{info.data['validate_regex']!r}."
-                )
+            is_valid = True
 
-        # Validate as Python packaging version
-        else:
-            try:
-                Version(value)
-            except InvalidVersion:
-                raise ValueError(f"Filter result {value!r} is not a valid version string.")
+            # Not an empty string or contains null string
+            if not value or value.lower() == "null":
+                super().__setattr__("result", None)
+                return
 
-        return value
+            # Validate as Docker tag if provided
+            elif self.validate_docker_tag:
+                if not re.fullmatch(r"[\w][\w.-]{0,127}", value):
+                    is_valid = False
+
+            # Validate against regex if provided
+            elif self.validate_regex:
+                if not re.fullmatch(self.validate_regex, value):
+                    is_valid = False
+
+            # Validate as Python packaging version
+            else:
+                try:
+                    Version(value)
+                except InvalidVersion:
+                    is_valid = False
+
+            if not is_valid:
+                # Set result to None and store invalid value
+                super().__setattr__("invalid_result", value)
+                super().__setattr__("result", None)
 
 
 class ConfigFileFormat(str, Enum):

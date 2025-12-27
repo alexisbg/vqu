@@ -137,7 +137,7 @@ class TestEvalProject:
         mock_to_yq.assert_called_once_with(ConfigFileFormat.JSON)
         mock_subprocess.assert_called_once()
         assert self.project.config_files[0].filters[0].result == "1.0.0"
-        mock_print_version.assert_called_once_with("1.0.0", False, "1.0.0", ".version")
+        mock_print_version.assert_called_once_with(self.config_filter, "1.0.0")
 
     def test_dont_store_invalid_value(self, mocker: MockerFixture) -> None:
         """eval_project should not store invalid result in config_filter.result."""
@@ -164,10 +164,11 @@ class TestEvalProject:
         )
         _setup_output_logger()
 
-        self.config_filter.result = None
+        self.config_filter.result = "1.0.0"
 
         eval_project("myproject", self.project)
 
+        assert self.config_filter.result is None
         out = caplog.text
         assert "yq" in out
 
@@ -217,8 +218,10 @@ class TestPrintVersion:
     def test_invalid_value(self, capsys: CaptureFixture) -> None:
         """_print_version should print '[Invalid version]' in red when version is _InvalidValue."""
         _setup_output_logger()
+        filter = ConfigFilter(expression=".version")
+        filter.result = "invalid"
 
-        _print_version("invalid", True, "1.0.0", ".version")
+        _print_version(filter, "1.0.0")
 
         out = capsys.readouterr().out
         assert f".version = {RED}[Invalid version] invalid{RESET}" in out
@@ -226,8 +229,9 @@ class TestPrintVersion:
     def test_none_value(self, capsys: CaptureFixture) -> None:
         """_print_version should print '[Value not found]' in red when version is None."""
         _setup_output_logger()
+        filter = ConfigFilter(expression=".version")
 
-        _print_version(None, False, "1.0.0", ".version")
+        _print_version(filter, "1.0.0")
 
         out = capsys.readouterr().out
         assert f".version = {RED}[Value not found]{RESET}" in out
@@ -235,8 +239,9 @@ class TestPrintVersion:
     def test_differing_version(self, capsys: CaptureFixture) -> None:
         """_print_version should print version in yellow when versions differ."""
         _setup_output_logger()
+        filter = ConfigFilter(expression=".version", result="0.9.0")
 
-        _print_version("0.9.0", False, "1.0.0", ".version")
+        _print_version(filter, "1.0.0")
 
         out = capsys.readouterr().out
         assert f".version = {YELLOW}0.9.0{RESET}" in out
@@ -244,8 +249,9 @@ class TestPrintVersion:
     def test_matching_version(self, capsys: CaptureFixture) -> None:
         """_print_version should print version in green when versions match."""
         _setup_output_logger()
+        filter = ConfigFilter(expression=".version", result="1.0.0")
 
-        _print_version("1.0.0", False, "1.0.0", ".version")
+        _print_version(filter, "1.0.0")
 
         out = capsys.readouterr().out
         assert f".version = {GREEN}1.0.0{RESET}" in out
